@@ -86,14 +86,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 05, 2025 - Enhanced Visual Design with NHL Team Logos and Custom CSS
-- Added NHL team logos next to player names throughout the interface
-- Implemented custom CSS styling for groups (A-G colors) and positions (F/D/G colors) 
-- Applied team-specific color gradients matching website design (panel-1 through panel-11)
-- Removed Bid column from Team Preview (only salary shown for assigned players)
-- Enhanced Team Preview sorting: START/MINOR status first, then by position (F/D/G)
-- Simplified budget display by removing "Auction Spending" and "Total Spent" metrics
-- Added visual styling badges for better data presentation consistency
+### July 05, 2025 - Complete Interface Overhaul and Bug Fixes
+- Removed duplicate tables from Team Preview and BOT Team pages - single table with styling now shown
+- Applied gradient styling to team roster headers ("Heskel Salims Roster" style) 
+- Added position and group styling to editable tables (F/D/G colors and A-G group colors)
+- Moved "Remove Player from Team" section to bottom of pages for better flow
+- Created proper Team Composition table with Position/START/MINOR/Total structure
+- Positioned Budget Summary at top-right after team selection on Team Preview
+- Removed points display from player assignment dropdown (cleaner selection)
+- Fixed player assignment to set status to START instead of AUCTION (major bug fix)
+- Enhanced NHL team logos with proper aspect ratio CSS (object-fit: contain)
+- Implemented comprehensive visual styling system throughout all interfaces
 
 ### July 05, 2025 - PostgreSQL Database Integration
 - Added PostgreSQL database support for persistent data storage

@@ -384,7 +384,7 @@ class FantasyAuction:
         """Assign a player to a team with auction price"""
         self.players_df.loc[player_index, 'FCHL TEAM'] = team_code
         self.players_df.loc[player_index, 'BID'] = auction_price
-        self.players_df.loc[player_index, 'STATUS'] = 'AUCTION'
+        self.players_df.loc[player_index, 'STATUS'] = 'START'
 
     def reset_to_baseline(self):
         """Reset all auction assignments to baseline state"""

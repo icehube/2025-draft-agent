@@ -338,7 +338,7 @@ def remaining_players_interface():
         st.subheader("Assign Player to Team")
         
         if not available_players.empty:
-            player_options = [(idx, f"{row['PLAYER']} ({row['POS']}) - {row['PTS']} pts - ${row['BID']:.1f}") 
+            player_options = [(idx, f"{row['PLAYER']} ({row['POS']}) - ${row['BID']:.1f}") 
                             for idx, row in available_players.iterrows()]
             
             col1, col2, col3 = st.columns(3)
@@ -507,16 +507,10 @@ def bot_team_interface():
     
     st.subheader("Current BOT Roster")
     if not bot_roster.empty:
-        # Show styled view first
-        st.markdown("**BOT Team Roster (with styling):**")
-        display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'FCHL TEAM', 'SALARY']
-        display_styled_dataframe(bot_roster, display_columns, show_logos=True)
-        
-        # Then show editable version for changes
-        st.markdown("**Edit BOT Team Status & Salary:**")
-        edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'SALARY']
+        # Single editable table with position and group styling
+        edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']
         styled_display = bot_roster[edit_columns].copy()
-        styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', '✏️ Salary']
+        styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary']
         
         # Create editable data with styling
         edited_df = st.data_editor(
@@ -659,29 +653,108 @@ def team_preview_interface():
             sorted_roster['sort_key'] = sorted_roster.apply(get_sort_key, axis=1)
             sorted_roster = sorted_roster.sort_values('sort_key').drop('sort_key', axis=1)
             
-            # Show styled view first
-            st.markdown("**Team Roster (with styling):**")
-            display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'FCHL TEAM', 'SALARY']
-            display_styled_dataframe(sorted_roster, display_columns, show_logos=True)
+            # Apply gradient styling to team name header
+            team_info = teams_data[selected_team]
+            panel_id = team_info.get('id', 1)
+            team_styles = {
+                1: 'background: linear-gradient(to right, #ea217b, #ff7e31); color: #fff;',
+                2: 'background: linear-gradient(to right, #000, #464646); color: #fff;',
+                3: 'background: linear-gradient(to right, #F4DD2E, #E02B15); color: #000;',
+                4: 'background: linear-gradient(to right, #26535f, #ed8e37); color: #fff;',
+                5: 'background: linear-gradient(to right, #0D4499, #E7CD38); color: #fff;',
+                6: 'background: linear-gradient(to right, #003876, #001f43); color: #fff;',
+                7: 'background: linear-gradient(to right, #012169, #FC4C02); color: #fff;',
+                8: 'background: linear-gradient(to right, #000, #d10000); color: #fff;',
+                9: 'background: linear-gradient(to right, #164846, #80C042); color: #fff;',
+                10: 'background: linear-gradient(to right, #172b1d, #8eaf38); color: #fff;',
+                11: 'background: linear-gradient(to right, #BD2F2E, #815061); color: #fff;'
+            }
+            team_style = team_styles.get(panel_id, 'background-color: #f0f0f0; color: #666;')
             
-            # Then show editable version for changes
+            st.markdown(f"""
+            <div style="padding: 10px; border-radius: 8px; margin-bottom: 20px; {team_style}">
+                <h3 style="margin: 0; text-align: center;">{team_info['name']} Roster</h3>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Budget Summary at top right
+            team_budgets = st.session_state.auction.get_team_budgets()
+            team_budget = team_budgets.get(selected_team, {})
+            
+            col1, col2 = st.columns([2, 1])
+            
+            with col2:
+                st.markdown("**Budget Summary**")
+                if team_budget:
+                    st.metric("Remaining Budget", f"${team_budget.get('remaining', 0):.1f}")
+                    st.write(f"**Formation:** {team_budget.get('f_count', 0)}F / {team_budget.get('d_count', 0)}D / {team_budget.get('g_count', 0)}G")
+                    st.write(f"**Target:** {FORWARD}F / {DEFENCE}D / {GOALIE}G")
+            
+            with col1:
+                # Single editable table with position and group styling
+                edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']
+                styled_display = sorted_roster[edit_columns].copy()
+                styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary']
+            
+            # Create editable data with position and group styling using display_styled_dataframe
             st.markdown("**Edit Team Status & Salary:**")
-            edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'SALARY']
-            styled_display = sorted_roster[edit_columns].copy()
-            styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', '✏️ Salary']
             
-            # Create editable data with styling
+            # Create a custom styled table for editing
+            html_table = '<table style="width: 100%; border-collapse: collapse; margin: 10px 0;">'
+            html_table += '<thead><tr style="background-color: #f8f9fa;">'
+            headers = ['Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary']
+            for header in headers:
+                html_table += f'<th style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{header}</th>'
+            html_table += '</tr></thead><tbody>'
+            
+            # Add styled rows
+            for idx, row in styled_display.iterrows():
+                html_table += '<tr style="border-bottom: 1px solid #eee;">'
+                
+                for col_idx, (col_name, cell_value) in enumerate(row.items()):
+                    if col_name == 'Pos':
+                        # Position styling
+                        pos_styles = {
+                            'F': 'background-color: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'D': 'background-color: #2196F3; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'G': 'background-color: #FF9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;'
+                        }
+                        pos_style = pos_styles.get(cell_value, 'background-color: #f0f0f0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 0.85em;')
+                        cell_value = f'<span style="{pos_style}">{cell_value}</span>'
+                    
+                    elif col_name == 'Group':
+                        # Group styling
+                        group_styles = {
+                            'A': 'background-color: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'B': 'background-color: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'C': 'background-color: #f39c12; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'D': 'background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'E': 'background-color: #3498db; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'F': 'background-color: #9b59b6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
+                            'G': 'background-color: #95a5a6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;'
+                        }
+                        group_style = group_styles.get(cell_value, 'background-color: #f0f0f0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 0.85em;')
+                        cell_value = f'<span style="{group_style}">{cell_value}</span>'
+                    
+                    html_table += f'<td style="padding: 8px; border: 1px solid #ddd;">{cell_value}</td>'
+                
+                html_table += '</tr>'
+            
+            html_table += '</tbody></table>'
+            st.markdown(html_table, unsafe_allow_html=True)
+            
+            # Now show the regular data editor for actual editing
             edited_df = st.data_editor(
                 styled_display,
                 column_config={
                     "✏️ Status": st.column_config.SelectboxColumn(
-                        "✏️ Status",  # Edit indicator
+                        "✏️ Status",
                         options=["START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"],
                         required=True,
                         help="Editable: Change player status"
                     ),
                     "✏️ Salary": st.column_config.NumberColumn(
-                        "✏️ Salary",  # Edit indicator
+                        "✏️ Salary",
                         min_value=0.0,
                         max_value=20.0,
                         step=0.1,
@@ -711,7 +784,35 @@ def team_preview_interface():
                     if abs(row['SALARY'] - new_salary) > 0.01:
                         st.session_state.auction.update_player_salary(original_idx, new_salary)
             
-            # Remove player button
+            # Team composition and budget summary - sorted by START/MINOR first, then Position
+            composition = st.session_state.auction.get_team_composition(selected_team)
+            team_budgets = st.session_state.auction.get_team_budgets()
+            budget = team_budgets[selected_team]
+            
+            # Create Team Composition table with proper structure
+            st.markdown("**Team Composition:**")
+            composition_data = {
+                'Position': ['F', 'D', 'G', 'Total'],
+                'START': [composition['start_f'], composition['start_d'], composition['start_g'], 
+                         composition['start_f'] + composition['start_d'] + composition['start_g']],
+                'MINOR': [composition['minor_f'], composition['minor_d'], composition['minor_g'],
+                         composition['minor_f'] + composition['minor_d'] + composition['minor_g']],
+                'Total': [composition['total_f'], composition['total_d'], composition['total_g'],
+                         composition['total_f'] + composition['total_d'] + composition['total_g']]
+            }
+            
+            composition_df = pd.DataFrame(composition_data)
+            st.dataframe(composition_df, hide_index=True, use_container_width=True)
+            
+            st.markdown("**Budget Summary:**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Committed Salary", f"${budget['committed_salary']:.1f}")
+            with col2:
+                st.metric("Remaining Budget", f"${budget['remaining']:.1f}")
+            
+            # Remove Player section moved to bottom
+            st.markdown("---")
             st.markdown("**Remove Player from Team:**")
             if not team_roster.empty:
                 player_to_remove = st.selectbox(
@@ -726,33 +827,6 @@ def team_preview_interface():
                     auto_recalculate()
                     st.success(f"Removed {player_to_remove[1].split(' (')[0]} from team")
                     st.rerun()
-            
-            # Team composition and budget summary - sorted by START/MINOR first, then Position
-            composition = st.session_state.auction.get_team_composition(selected_team)
-            team_budgets = st.session_state.auction.get_team_budgets()
-            budget = team_budgets[selected_team]
-            
-            st.markdown("**Team Composition (sorted by START/MINOR, then Position):**")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.write(f"**START Forwards:** {composition['start_f']}")
-                st.write(f"**MINOR Forwards:** {composition['minor_f']}")
-                st.write(f"**Total Forwards:** {composition['total_f']}")
-            with col2:
-                st.write(f"**START Defense:** {composition['start_d']}")
-                st.write(f"**MINOR Defense:** {composition['minor_d']}")
-                st.write(f"**Total Defense:** {composition['total_d']}")
-            with col3:
-                st.write(f"**START Goalies:** {composition['start_g']}")
-                st.write(f"**MINOR Goalies:** {composition['minor_g']}")
-                st.write(f"**Total Goalies:** {composition['total_g']}")
-            
-            st.markdown("**Budget Summary:**")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Committed Salary", f"${budget['committed_salary']:.1f}")
-            with col2:
-                st.metric("Remaining Budget", f"${budget['remaining']:.1f}")
                 
         else:
             st.info(f"No players currently on {teams_data[selected_team]['name']} roster")
