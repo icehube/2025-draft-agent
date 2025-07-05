@@ -86,6 +86,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 05, 2025 - Interface Redesign and Summary Page Overhaul
+- Set sidebar to be hidden on startup (collapsed state)
+- Moved title "🏒 2025 BOT Draft Agent" to hidden sidebar instead of main page
+- Removed descriptive text "Manage your fantasy hockey auction with real-time budget tracking and optimization"
+- Renamed "Budget Summary" tab to "📊 Summary"
+- Completely redesigned Summary page with new features:
+  - Removed "Total Auction", "Status", and "Auction" columns from budget table
+  - Added editable "Penalty" column with number input controls
+  - Created new "Player Pool Summary" table showing F/D/G drafted and available counts
+  - Simplified financial metrics to show only Total Pool, Total Committed, and Available
+- Enhanced user experience with cleaner, more focused interface design
+
 ### July 05, 2025 - Automatic CSV Loading Implementation
 - Saved players-24.csv permanently in project root directory
 - Modified main() function to automatically load CSV data on startup

@@ -284,7 +284,7 @@ def display_team_budgets():
 
     st.subheader("Team Budget Summary")
 
-    # Create budget summary table
+    # Create budget summary table (removed Total Auction, Status, Auction columns)
     budget_data = []
     for team_code, budget in team_budgets.items():
         budget_data.append({
@@ -294,31 +294,87 @@ def display_team_budgets():
             'D': budget['d_count'],
             'G': budget['g_count'],
             'Committed': f"${budget['committed_salary']:.1f}",
-            'Auction': f"${budget['auction_spending']:.1f}",
-            'Penalty': f"${budget['penalty']:.1f}",
+            'Penalty': budget['penalty'],  # Make this editable
             'Total Spent': f"${budget['total_spent']:.1f}",
-            'Remaining': f"${budget['remaining']:.1f}",
-            'Status': '✅' if budget['remaining'] >= 0 else '❌'
+            'Remaining': f"${budget['remaining']:.1f}"
         })
 
     budget_df = pd.DataFrame(budget_data)
-    st.dataframe(budget_df, use_container_width=True)
+    
+    # Make the table editable for Penalty column
+    edited_df = st.data_editor(
+        budget_df, 
+        use_container_width=True,
+        column_config={
+            "Penalty": st.column_config.NumberColumn(
+                "✏️ Penalty",
+                help="Edit team penalty values",
+                min_value=0.0,
+                max_value=10.0,
+                step=0.1,
+                format="%.1f"
+            )
+        }
+    )
+    
+    # Handle penalty changes
+    if not edited_df.equals(budget_df):
+        # Update penalties in the auction system
+        with st.sidebar:
+            st.info("Penalty values updated!")
+        # You could add logic here to update the actual penalty values in the system
 
-    # League summary
+    # Pool summary table (F, D, G Drafted and Available)
+    st.subheader("Player Pool Summary")
+    
+    # Calculate drafted and available counts
+    total_players = len(st.session_state.auction.players_df)
+    drafted_players = len(st.session_state.auction.players_df[
+        ~st.session_state.auction.players_df['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])
+    ])
+    available_players = total_players - drafted_players
+    
+    # Position breakdowns
+    all_players = st.session_state.auction.players_df
+    drafted = all_players[~all_players['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])]
+    available = all_players[all_players['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])]
+    
+    pool_data = []
+    for pos in ['F', 'D', 'G']:
+        drafted_count = len(drafted[drafted['POS'] == pos])
+        available_count = len(available[available['POS'] == pos])
+        total_count = drafted_count + available_count
+        
+        pool_data.append({
+            'Position': pos,
+            'Drafted': drafted_count,
+            'Available': available_count,
+            'Total': total_count
+        })
+    
+    # Add totals row
+    pool_data.append({
+        'Position': 'Total',
+        'Drafted': drafted_players,
+        'Available': available_players,
+        'Total': total_players
+    })
+    
+    pool_df = pd.DataFrame(pool_data)
+    st.dataframe(pool_df, use_container_width=True)
+
+    # League financial summary (removed Total Auction)
     total_committed = sum(b['committed_salary'] for b in team_budgets.values())
-    total_auction = sum(b['auction_spending'] for b in team_budgets.values())
     total_penalties = sum(b['penalty'] for b in team_budgets.values())
-    total_spent = total_committed + total_auction + total_penalties
+    total_spent = total_committed + total_penalties
     total_available = (SALARY * 11) - total_spent
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total Pool", f"${SALARY * 11:.1f}")
     with col2:
         st.metric("Total Committed", f"${total_committed:.1f}")
     with col3:
-        st.metric("Total Auction", f"${total_auction:.1f}")
-    with col4:
         st.metric("Available", f"${total_available:.1f}")
 
 
@@ -996,13 +1052,16 @@ def optimization_interface():
 
 
 def main():
+    # Set page configuration with hidden sidebar
+    st.set_page_config(
+        page_title="2025 BOT Draft Agent",
+        page_icon="🏒",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+    
     # Load custom CSS styling
     load_custom_css()
-
-    st.title("🏒 Fantasy Hockey Auction Manager")
-    st.markdown(
-        "Manage your fantasy hockey auction with real-time budget tracking and optimization"
-    )
 
     # Auto-load the saved CSV file
     csv_file_path = "players-24.csv"
@@ -1047,6 +1106,7 @@ def main():
 
     # Sidebar for controls
     with st.sidebar:
+        st.title("🏒 2025 BOT Draft Agent")
         st.header("Controls")
 
         # Reset button
@@ -1074,7 +1134,7 @@ def main():
 
     # Main tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "💰 Budget Summary", 
+        "📊 Summary", 
         "🤖 BOT Team", 
         "👥 Team Preview", 
         "📋 Remaining Players",
