@@ -246,6 +246,7 @@ class FantasyAuction:
             team_players = self.players_df[self.players_df['FCHL TEAM'] == team_code]
             
             # Calculate committed salary (existing contracts)
+            # Group A-G MINOR players don't count against salary cap
             committed_salary = team_players[
                 (team_players['STATUS'] == 'START') | 
                 ((team_players['STATUS'] == 'MINOR') & (team_players['GROUP'].isin(['2', '3'])))
@@ -259,16 +260,72 @@ class FantasyAuction:
             total_spent = committed_salary + auction_spending + penalty
             remaining = SALARY - total_spent
             
+            # Count players by position
+            f_count = len(team_players[team_players['POS'] == 'F'])
+            d_count = len(team_players[team_players['POS'] == 'D'])
+            g_count = len(team_players[team_players['POS'] == 'G'])
+            
             team_budgets[team_code] = {
                 'name': team_name,
                 'committed_salary': committed_salary,
                 'auction_spending': auction_spending,
                 'penalty': penalty,
                 'total_spent': total_spent,
-                'remaining': remaining
+                'remaining': remaining,
+                'f_count': f_count,
+                'd_count': d_count,
+                'g_count': g_count
             }
             
         return team_budgets
+
+    def get_team_roster(self, team_code):
+        """Get detailed roster for a specific team"""
+        team_players = self.players_df[self.players_df['FCHL TEAM'] == team_code].copy()
+        
+        if team_players.empty:
+            return team_players
+            
+        # Sort by position and points
+        position_order = {'F': 1, 'D': 2, 'G': 3}
+        team_players['pos_order'] = team_players['POS'].map(position_order)
+        team_players = team_players.sort_values(['pos_order', 'PTS'], ascending=[True, False])
+        team_players = team_players.drop('pos_order', axis=1)
+        
+        return team_players
+
+    def get_bot_optimal_team(self):
+        """Get the optimal team construction for BOT (Bridlewood AI)"""
+        if not hasattr(self, 'model') or not hasattr(self, 'player_vars'):
+            return None
+            
+        try:
+            solution = self.get_solution()
+            if solution is None:
+                return None
+                
+            optimal_players = []
+            for i, row in self.filtered_df.iterrows():
+                if self.model.getSolVal(solution, self.player_vars[i]) > 0.5:
+                    optimal_players.append({
+                        'PLAYER': row['PLAYER'],
+                        'POS': row['POS'],
+                        'PTS': row['PTS'],
+                        'SALARY': row['SALARY'],
+                        'BID': row['BID'],
+                        'TOTAL_COST': row['SALARY'] + row['BID'],
+                        'FCHL TEAM': row['FCHL TEAM'],
+                        'STATUS': row['STATUS'],
+                        'GROUP': row['GROUP']
+                    })
+            
+            return pd.DataFrame(optimal_players)
+        except:
+            return None
+
+    def update_player_status(self, player_index, new_status):
+        """Update a player's status"""
+        self.players_df.loc[player_index, 'STATUS'] = new_status
 
     def assign_player_to_team(self, player_index, team_code, auction_price):
         """Assign a player to a team with auction price"""

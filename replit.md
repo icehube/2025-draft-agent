@@ -84,7 +84,32 @@ The Fantasy Hockey Auction Manager is a Streamlit-based web application designed
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+
+### July 05, 2025 - Enhanced BOT Team Features
+- Added dedicated BOT (Bridlewood AI) team optimization interface
+- Implemented optimal team configuration display with detailed roster view
+- Enhanced budget tracking to include player counts by position (F/D/G)
+- Added comprehensive team roster management with editable player status
+- Improved Group visibility throughout the interface (Groups A-G MINOR players don't count against salary cap)
+- Created specialized tabs: Budget Summary, BOT Team, Team Management, Player Assignment
+- Added real-time budget validation and team composition tracking
+
+### July 05, 2025 - Initial Setup
+- Created Streamlit web interface for fantasy hockey auction management
+- Implemented core FantasyAuction class with Z-score calculations and optimization
+- Set up file upload functionality for player CSV data
+- Established team budget tracking and player assignment capabilities
+
+## User Preferences
+
+- Focus on Bridlewood AI (BOT) team optimization and management
+- Need visibility into Group classifications for salary cap calculations
+- Require editable team rosters with status management (START/MINOR affects budgets)
+- Want clear view of optimal team construction after auction completion
+
 ## Changelog
 
 Changelog:
+- July 05, 2025. Enhanced with BOT team focus and team management features
 - July 05, 2025. Initial setup
