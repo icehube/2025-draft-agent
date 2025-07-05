@@ -88,66 +88,77 @@ def display_team_budgets():
     with col4:
         st.metric("Available", f"${total_available:.1f}")
 
-def player_assignment_interface():
-    """Interface for assigning players to teams"""
-    if st.session_state.auction is None or st.session_state.players_df is None:
+def remaining_players_interface():
+    """Interface showing remaining players available for auction"""
+    if st.session_state.auction is None:
         return
     
-    st.subheader("Player Assignment")
+    st.subheader("Remaining Players")
     
-    # Filter options
-    col1, col2, col3 = st.columns(3)
+    # Get available players for auction
+    available_players = st.session_state.auction.get_available_players()
     
-    with col1:
-        position_filter = st.selectbox(
-            "Filter by Position",
-            ["All", "F", "D", "G"]
-        )
-    
-    with col2:
-        status_filter = st.selectbox(
-            "Filter by Status",
-            ["All", "UFA", "RFA", "ENT", "START", "MINOR", "AUCTION"]
-        )
-    
-    with col3:
-        team_filter = st.selectbox(
-            "Filter by Team",
-            ["All"] + list(teams_data.keys())
-        )
-    
-    # Apply filters
-    filtered_df = st.session_state.players_df.copy()
-    
-    if position_filter != "All":
-        filtered_df = filtered_df[filtered_df['POS'] == position_filter]
-    
-    if status_filter != "All":
-        filtered_df = filtered_df[filtered_df['STATUS'] == status_filter]
-    
-    if team_filter != "All":
-        filtered_df = filtered_df[filtered_df['FCHL TEAM'] == team_filter]
-    
-    # Display filtered players
-    if not filtered_df.empty:
-        # Select columns to display
-        display_columns = ['PLAYER', 'POS', 'PTS', 'FCHL TEAM', 'STATUS', 'SALARY', 'BID']
-        display_df = filtered_df[display_columns].copy()
+    if not available_players.empty:
+        # Filter options
+        col1, col2 = st.columns(2)
         
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            height=400
-        )
+        with col1:
+            position_filter = st.selectbox(
+                "Filter by Position",
+                ["All", "F", "D", "G"],
+                key="remaining_pos_filter"
+            )
+        
+        with col2:
+            sort_by = st.selectbox(
+                "Sort by",
+                ["Points (High to Low)", "Bid (High to Low)", "Player Name"],
+                key="remaining_sort"
+            )
+        
+        # Apply filters
+        filtered_df = available_players.copy()
+        
+        if position_filter != "All":
+            filtered_df = filtered_df[filtered_df['POS'] == position_filter]
+        
+        # Sort the data
+        if sort_by == "Points (High to Low)":
+            filtered_df = filtered_df.sort_values('PTS', ascending=False)
+        elif sort_by == "Bid (High to Low)":
+            filtered_df = filtered_df.sort_values('BID', ascending=False)
+        elif sort_by == "Player Name":
+            filtered_df = filtered_df.sort_values('PLAYER')
+        
+        # Display available players
+        if not filtered_df.empty:
+            display_columns = ['PLAYER', 'POS', 'PTS', 'GROUP', 'BID']
+            display_df = filtered_df[display_columns].copy()
+            
+            st.dataframe(
+                display_df,
+                use_container_width=True,
+                height=400,
+                column_config={
+                    "BID": st.column_config.NumberColumn(
+                        "Optimal Bid",
+                        format="$%.1f",
+                        help="Model's recommended bid price"
+                    ),
+                    "PTS": st.column_config.NumberColumn("Points"),
+                    "GROUP": st.column_config.TextColumn("Group")
+                }
+            )
+            
+            st.info(f"Showing {len(filtered_df)} available players for auction")
+        else:
+            st.info("No available players match the current filters.")
         
         # Player assignment form
         st.subheader("Assign Player to Team")
         
-        # Player selection
-        available_players = filtered_df[filtered_df['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])]
-        
         if not available_players.empty:
-            player_options = [(idx, f"{row['PLAYER']} ({row['POS']}) - {row['PTS']} pts") 
+            player_options = [(idx, f"{row['PLAYER']} ({row['POS']}) - {row['PTS']} pts - ${row['BID']:.1f}") 
                             for idx, row in available_players.iterrows()]
             
             col1, col2, col3 = st.columns(3)
@@ -156,26 +167,35 @@ def player_assignment_interface():
                 selected_player = st.selectbox(
                     "Select Player",
                     options=[None] + player_options,
-                    format_func=lambda x: "Select a player..." if x is None else x[1]
+                    format_func=lambda x: "Select a player..." if x is None else x[1],
+                    key="assign_player_select"
                 )
             
             with col2:
                 selected_team = st.selectbox(
                     "Assign to Team",
                     options=list(teams_data.keys()),
-                    format_func=lambda x: f"{x} - {teams_data[x]['name']}"
+                    format_func=lambda x: f"{x} - {teams_data[x]['name']}",
+                    key="assign_team_select"
                 )
             
             with col3:
+                # Pre-fill with optimal bid if player selected
+                default_price = 1.0
+                if selected_player is not None:
+                    player_row = available_players.loc[selected_player[0]]
+                    default_price = float(player_row['BID'])
+                
                 auction_price = st.number_input(
                     "Auction Price",
                     min_value=0.0,
                     max_value=20.0,
-                    value=1.0,
-                    step=0.1
+                    value=default_price,
+                    step=0.1,
+                    key="assign_price_input"
                 )
             
-            if st.button("Assign Player") and selected_player is not None:
+            if st.button("Assign Player", key="assign_player_btn") and selected_player is not None:
                 player_idx = selected_player[0]
                 
                 # Check if team has budget
@@ -183,15 +203,29 @@ def player_assignment_interface():
                 if team_budgets[selected_team]['remaining'] >= auction_price:
                     # Assign player
                     st.session_state.auction.assign_player_to_team(player_idx, selected_team, auction_price)
-                    st.session_state.players_df = st.session_state.auction.players_df
+                    auto_recalculate()
                     st.success(f"Assigned {selected_player[1].split(' (')[0]} to {teams_data[selected_team]['name']} for ${auction_price}")
                     st.rerun()
                 else:
                     st.error(f"Insufficient budget! {teams_data[selected_team]['name']} has ${team_budgets[selected_team]['remaining']:.1f} remaining")
-        else:
-            st.info("No available players to assign with current filters.")
+        
     else:
-        st.info("No players match the current filters.")
+        st.info("No players currently available for auction")
+
+def auto_recalculate():
+    """Auto-recalculate when data changes"""
+    if st.session_state.auction is not None:
+        result = st.session_state.auction.process_data()
+        if result:
+            st.session_state.players_df = st.session_state.auction.players_df
+            # Auto-run optimization for BOT team
+            try:
+                st.session_state.auction.build_model()
+                solution = st.session_state.auction.solve_model()
+                if solution:
+                    st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
+            except:
+                pass  # Silent fail for optimization
 
 def bot_team_interface():
     """Interface for BOT (Bridlewood AI) team optimization"""
@@ -225,31 +259,14 @@ def bot_team_interface():
             st.info("No players currently on BOT roster")
     
     with col2:
-        st.subheader("Optimization Controls")
+        st.subheader("Budget & Requirements")
+        team_budgets = st.session_state.auction.get_team_budgets()
+        bot_budget = team_budgets.get('BOT', {})
         
-        if st.button("Recalculate Z-Scores & Bids"):
-            with st.spinner("Recalculating..."):
-                result = st.session_state.auction.process_data()
-                if result:
-                    st.session_state.players_df = st.session_state.auction.players_df
-                    st.success("Z-scores and bids updated!")
-                    st.rerun()
-                else:
-                    st.error("Error in recalculation")
-        
-        if st.button("🎯 Optimize BOT Team"):
-            with st.spinner("Running optimization..."):
-                try:
-                    st.session_state.auction.build_model()
-                    solution = st.session_state.auction.solve_model()
-                    if solution:
-                        st.success("Optimization completed!")
-                        st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
-                        st.rerun()
-                    else:
-                        st.warning("Optimization did not find an optimal solution")
-                except Exception as e:
-                    st.error(f"Optimization error: {str(e)}")
+        if bot_budget:
+            st.metric("Remaining Budget", f"${bot_budget.get('remaining', 0):.1f}")
+            st.write(f"**Target:** {FORWARD}F / {DEFENCE}D / {GOALIE}G")
+            st.write(f"**Current:** {bot_budget.get('f_count', 0)}F / {bot_budget.get('d_count', 0)}D / {bot_budget.get('g_count', 0)}G")
     
     # Display optimal team if available
     if 'optimal_team' in st.session_state and st.session_state.optimal_team is not None:
@@ -285,12 +302,12 @@ def bot_team_interface():
             with col4:
                 st.metric("Remaining Budget", f"${SALARY - total_cost:.1f}")
 
-def team_management_interface():
-    """Interface for managing all team rosters"""
+def team_preview_interface():
+    """Team Preview interface for managing all team rosters"""
     if st.session_state.auction is None:
         return
     
-    st.subheader("Team Roster Management")
+    st.subheader("Team Preview")
     
     # Team selection
     selected_team = st.selectbox(
@@ -305,56 +322,104 @@ def team_management_interface():
         if not team_roster.empty:
             st.subheader(f"{teams_data[selected_team]['name']} Roster")
             
-            # Display roster with editable status
+            # Display roster with editable fields
             display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY', 'BID']
+            
+            # Create editable data with styling
             edited_df = st.data_editor(
                 team_roster[display_columns],
                 column_config={
                     "STATUS": st.column_config.SelectboxColumn(
-                        "Status",
+                        "✏️ Status",  # Edit indicator
                         options=["START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"],
-                        required=True
+                        required=True,
+                        help="Editable: Change player status"
+                    ),
+                    "SALARY": st.column_config.NumberColumn(
+                        "✏️ Salary",  # Edit indicator
+                        min_value=0.0,
+                        max_value=20.0,
+                        step=0.1,
+                        format="$%.1f",
+                        help="Editable: Adjust salary if needed"
+                    ),
+                    "BID": st.column_config.NumberColumn(
+                        "✏️ Bid",  # Edit indicator
+                        min_value=0.0,
+                        max_value=20.0,
+                        step=0.1,
+                        format="$%.1f",
+                        help="Editable: Adjust bid if needed"
                     ),
                     "PLAYER": st.column_config.TextColumn("Player", disabled=True),
-                    "POS": st.column_config.TextColumn("Position", disabled=True),
+                    "POS": st.column_config.TextColumn("Pos", disabled=True),
                     "PTS": st.column_config.NumberColumn("Points", disabled=True),
-                    "GROUP": st.column_config.TextColumn("Group", disabled=True),
-                    "SALARY": st.column_config.NumberColumn("Salary", disabled=True),
-                    "BID": st.column_config.NumberColumn("Bid", disabled=True)
+                    "GROUP": st.column_config.TextColumn("Group", disabled=True)
                 },
                 use_container_width=True,
                 height=400,
-                key=f"team_editor_{selected_team}"
+                key=f"team_editor_{selected_team}",
+                on_change=lambda: auto_recalculate()  # Auto-recalculate on change
             )
             
-            # Update button
-            if st.button("Update Team Status"):
-                # Apply status changes
-                for idx, (original_idx, row) in enumerate(team_roster.iterrows()):
+            # Check for changes and apply them
+            for idx, (original_idx, row) in enumerate(team_roster.iterrows()):
+                if idx < len(edited_df):
                     new_status = edited_df.iloc[idx]['STATUS']
+                    new_salary = edited_df.iloc[idx]['SALARY']
+                    new_bid = edited_df.iloc[idx]['BID']
+                    
                     if row['STATUS'] != new_status:
                         st.session_state.auction.update_player_status(original_idx, new_status)
-                
-                # Recalculate after changes
-                result = st.session_state.auction.process_data()
-                if result:
-                    st.session_state.players_df = st.session_state.auction.players_df
-                    st.success("Team status updated and budgets recalculated!")
-                    st.rerun()
-                else:
-                    st.error("Error updating team status")
+                    if abs(row['SALARY'] - new_salary) > 0.01:
+                        st.session_state.auction.update_player_salary(original_idx, new_salary)
+                    if abs(row['BID'] - new_bid) > 0.01:
+                        st.session_state.auction.update_player_bid(original_idx, new_bid)
             
-            # Team summary
+            # Remove player button
+            st.markdown("**Remove Player from Team:**")
+            if not team_roster.empty:
+                player_to_remove = st.selectbox(
+                    "Select player to remove and return to auction pool",
+                    options=[(idx, f"{row['PLAYER']} ({row['POS']})") for idx, row in team_roster.iterrows()],
+                    format_func=lambda x: x[1],
+                    key=f"remove_player_{selected_team}"
+                )
+                
+                if st.button("🗑️ Remove Player", key=f"remove_btn_{selected_team}"):
+                    st.session_state.auction.remove_player_from_team(player_to_remove[0])
+                    auto_recalculate()
+                    st.success(f"Removed {player_to_remove[1].split(' (')[0]} from team")
+                    st.rerun()
+            
+            # Team composition and budget summary
+            composition = st.session_state.auction.get_team_composition(selected_team)
             team_budgets = st.session_state.auction.get_team_budgets()
             budget = team_budgets[selected_team]
             
+            st.markdown("**Team Composition:**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.write(f"**Forwards:** {composition['total_f']} total")
+                st.write(f"  - START: {composition['start_f']}")
+                st.write(f"  - MINOR: {composition['minor_f']}")
+            with col2:
+                st.write(f"**Defense:** {composition['total_d']} total")
+                st.write(f"  - START: {composition['start_d']}")
+                st.write(f"  - MINOR: {composition['minor_d']}")
+            with col3:
+                st.write(f"**Goalies:** {composition['total_g']} total")
+                st.write(f"  - START: {composition['start_g']}")
+                st.write(f"  - MINOR: {composition['minor_g']}")
+            
+            st.markdown("**Budget Summary:**")
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("Players", f"{budget['f_count']}F / {budget['d_count']}D / {budget['g_count']}G")
-            with col2:
                 st.metric("Committed Salary", f"${budget['committed_salary']:.1f}")
-            with col3:
+            with col2:
                 st.metric("Auction Spending", f"${budget['auction_spending']:.1f}")
+            with col3:
+                st.metric("Total Spent", f"${budget['total_spent']:.1f}")
             with col4:
                 st.metric("Remaining Budget", f"${budget['remaining']:.1f}")
                 
@@ -394,11 +459,19 @@ def main():
                     st.session_state.baseline_df = df.copy()
                     st.session_state.auction = FantasyAuction(df=df)
                     
-                    # Process initial data
+                    # Process initial data and auto-optimize
                     result = st.session_state.auction.process_data()
                     if result:
                         st.session_state.players_df = st.session_state.auction.players_df
-                        st.success("Data loaded and processed!")
+                        # Auto-run initial optimization
+                        try:
+                            st.session_state.auction.build_model()
+                            solution = st.session_state.auction.solve_model()
+                            if solution:
+                                st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
+                        except:
+                            pass  # Silent fail for initial optimization
+                        st.success("Data loaded, processed, and optimized!")
                     else:
                         st.error("Error processing data")
         
@@ -407,11 +480,9 @@ def main():
             st.markdown("---")
             if st.button("🔄 Reset to Baseline", help="Reset all auction assignments"):
                 st.session_state.auction.reset_to_baseline()
-                result = st.session_state.auction.process_data()
-                if result:
-                    st.session_state.players_df = st.session_state.auction.players_df
-                    st.success("Reset to baseline state!")
-                    st.rerun()
+                auto_recalculate()
+                st.success("Reset to baseline state!")
+                st.rerun()
         
         # League info
         st.markdown("---")
@@ -444,7 +515,7 @@ def main():
         
     else:
         # Create tabs for different sections
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Budget Summary", "🤖 BOT Team", "👥 Team Management", "📋 Player Assignment"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Budget Summary", "🤖 BOT Team", "👥 Team Preview", "📋 Remaining Players"])
         
         with tab1:
             display_team_budgets()
@@ -453,10 +524,10 @@ def main():
             bot_team_interface()
         
         with tab3:
-            team_management_interface()
+            team_preview_interface()
             
         with tab4:
-            player_assignment_interface()
+            remaining_players_interface()
 
 if __name__ == "__main__":
     main()

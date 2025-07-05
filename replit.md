@@ -86,13 +86,22 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 05, 2025 - Auto-Reactive Interface with Enhanced Editing
+- Implemented automatic recalculation and optimization when data changes (removed manual buttons)
+- Enhanced Team Preview with visual indicators for editable fields (✏️ Status, Salary, Bid)
+- Added real-time auto-updating of budgets and optimal team when cells are edited
+- Replaced Player Assignment with focused "Remaining Players" interface showing only auction-available players
+- Added player removal functionality to return players to auction pool
+- Improved team composition tracking with START/MINOR breakdown by position
+- Streamlined interface with clear visual cues for which fields can be edited
+
 ### July 05, 2025 - Enhanced BOT Team Features
 - Added dedicated BOT (Bridlewood AI) team optimization interface
 - Implemented optimal team configuration display with detailed roster view
 - Enhanced budget tracking to include player counts by position (F/D/G)
 - Added comprehensive team roster management with editable player status
 - Improved Group visibility throughout the interface (Groups A-G MINOR players don't count against salary cap)
-- Created specialized tabs: Budget Summary, BOT Team, Team Management, Player Assignment
+- Created specialized tabs: Budget Summary, BOT Team, Team Preview, Remaining Players
 - Added real-time budget validation and team composition tracking
 
 ### July 05, 2025 - Initial Setup

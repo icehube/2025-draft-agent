@@ -327,6 +327,59 @@ class FantasyAuction:
         """Update a player's status"""
         self.players_df.loc[player_index, 'STATUS'] = new_status
 
+    def update_player_salary(self, player_index, new_salary):
+        """Update a player's salary"""
+        self.players_df.loc[player_index, 'SALARY'] = new_salary
+
+    def update_player_bid(self, player_index, new_bid):
+        """Update a player's bid"""
+        self.players_df.loc[player_index, 'BID'] = new_bid
+
+    def remove_player_from_team(self, player_index):
+        """Remove a player from their current team and return to auction pool"""
+        self.players_df.loc[player_index, 'FCHL TEAM'] = 'UFA'
+        self.players_df.loc[player_index, 'STATUS'] = 'NO'
+        self.players_df.loc[player_index, 'BID'] = 0.0
+
+    def get_available_players(self):
+        """Get players available for auction (UFA, RFA, ENT)"""
+        available = self.players_df[
+            (self.players_df['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])) &
+            (self.players_df['Draftable'] == 'YES') &
+            (self.players_df['BID'] > 0)
+        ].copy()
+        
+        if available.empty:
+            return available
+            
+        # Sort by position and points
+        position_order = {'F': 1, 'D': 2, 'G': 3}
+        available['pos_order'] = available['POS'].map(position_order)
+        available = available.sort_values(['pos_order', 'PTS'], ascending=[True, False])
+        available = available.drop('pos_order', axis=1)
+        
+        return available
+
+    def get_team_composition(self, team_code):
+        """Get detailed team composition with START/MINOR breakdown"""
+        team_players = self.players_df[self.players_df['FCHL TEAM'] == team_code]
+        
+        if team_players.empty:
+            return {
+                'total_f': 0, 'start_f': 0, 'minor_f': 0,
+                'total_d': 0, 'start_d': 0, 'minor_d': 0, 
+                'total_g': 0, 'start_g': 0, 'minor_g': 0
+            }
+        
+        composition = {}
+        for pos in ['F', 'D', 'G']:
+            pos_players = team_players[team_players['POS'] == pos]
+            composition[f'total_{pos.lower()}'] = len(pos_players)
+            composition[f'start_{pos.lower()}'] = len(pos_players[pos_players['STATUS'] == 'START'])
+            composition[f'minor_{pos.lower()}'] = len(pos_players[pos_players['STATUS'] == 'MINOR'])
+            
+        return composition
+
     def assign_player_to_team(self, player_index, team_code, auction_price):
         """Assign a player to a team with auction price"""
         self.players_df.loc[player_index, 'FCHL TEAM'] = team_code
