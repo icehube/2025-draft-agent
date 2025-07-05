@@ -5,6 +5,7 @@ import json
 import base64
 import os
 from fantasy_auction import FantasyAuction, teams_data, SALARY, FORWARD, DEFENCE, GOALIE
+from database import FantasyDatabase
 
 # Page configuration
 st.set_page_config(
@@ -72,36 +73,131 @@ def load_custom_css():
 # Helper functions for styling
 def get_nhl_logo_path(team_code):
     """Get the path to NHL team logo"""
+    # Try the new NHL logos first
+    logo_path = f"assets/nhl_logos/{team_code}.png"
+    if os.path.exists(logo_path):
+        return logo_path
+    # Fallback to FCHL logos
     logo_path = f"assets/nhl_logos/{team_code}.png"
     if os.path.exists(logo_path):
         return logo_path
     return None
 
-def format_player_with_logo(player_name, nhl_team):
-    """Format player name with NHL team logo"""
-    logo_path = get_nhl_logo_path(nhl_team)
+def get_logo_base64(team_code):
+    """Get base64 encoded logo for a team"""
+    logo_path = get_nhl_logo_path(team_code)
     if logo_path:
         try:
             with open(logo_path, "rb") as f:
-                encoded_logo = base64.b64encode(f.read()).decode()
-            return f'<img src="data:image/png;base64,{encoded_logo}" class="nhl-logo">{player_name}'
+                return base64.b64encode(f.read()).decode()
         except:
-            return player_name
-    return player_name
+            return None
+    return None
+
+def display_styled_dataframe(df, columns, title="", show_logos=True):
+    """Display a dataframe with custom styling for groups, positions, and logos"""
+    if df.empty:
+        st.info(f"No data to display{' for ' + title if title else ''}")
+        return
+    
+    # Create a copy for display
+    display_df = df[columns].copy()
+    
+    if title:
+        st.subheader(title)
+    
+    # Style the dataframe with custom HTML
+    html_table = "<div style='max-height: 400px; overflow-y: auto;'><table style='width: 100%; border-collapse: collapse;'>"
+    
+    # Header
+    html_table += "<thead><tr style='background-color: #f0f2f6; position: sticky; top: 0;'>"
+    for col in display_df.columns:
+        html_table += f"<th style='padding: 8px; text-align: left; border-bottom: 2px solid #ddd;'>{col}</th>"
+    html_table += "</tr></thead><tbody>"
+    
+    # Rows
+    for idx, row in display_df.iterrows():
+        html_table += "<tr style='border-bottom: 1px solid #eee;'>"
+        for col in display_df.columns:
+            cell_value = str(row[col])
+            style = "padding: 8px; vertical-align: middle;"
+            
+            # Add NHL logo for player column
+            if col == 'PLAYER' and show_logos and 'NHL TEAM' in df.columns:
+                nhl_team = df.loc[idx, 'NHL TEAM'] if 'NHL TEAM' in df.columns else ''
+                logo_b64 = get_logo_base64(nhl_team)
+                if logo_b64:
+                    cell_value = f'<img src="data:image/png;base64,{logo_b64}" style="width: 20px; height: 20px; margin-right: 5px; vertical-align: middle;">{cell_value}'
+            
+            # Style group column with full CSS styles
+            elif col == 'GROUP':
+                group_styles = {
+                    '3': 'background-color: rgba(69, 90, 100, 0.1); color: #455a64; border: 1px solid rgba(69, 90, 100, 0.3);',
+                    '2': 'background-color: rgba(67, 160, 71, 0.1); color: #43a047; border: 1px solid rgba(67, 160, 71, 0.3);',
+                    'A': 'background-color: rgba(41, 182, 246, 0.1); color: #29b6f6; border: 1px solid rgba(41, 182, 246, 0.3);',
+                    'B': 'background-color: rgba(3, 169, 244, 0.1); color: #03a9f4; border: 1px solid rgba(3, 169, 244, 0.3);',
+                    'C': 'background-color: rgba(3, 155, 229, 0.1); color: #039be5; border: 1px solid rgba(3, 155, 229, 0.3);',
+                    'D': 'background-color: rgba(2, 136, 209, 0.1); color: #0288d1; border: 1px solid rgba(2, 136, 209, 0.3);',
+                    'E': 'background-color: rgba(2, 119, 189, 0.1); color: #0277bd; border: 1px solid rgba(2, 119, 189, 0.3);',
+                    'F': 'background-color: rgba(1, 87, 155, 0.1); color: #01579b; border: 1px solid rgba(1, 87, 155, 0.3);',
+                    'G': 'background-color: rgba(1, 87, 155, 0.1); color: #01579b; border: 1px solid rgba(1, 87, 155, 0.3);',
+                    'T': 'background-color: rgba(240, 98, 146, 0.1); color: #f06292; border: 1px solid rgba(240, 98, 146, 0.3);'
+                }
+                group_style = group_styles.get(cell_value, 'background-color: #f0f0f0; color: #666;')
+                cell_value = f'<span style="padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500; {group_style}">{cell_value}</span>'
+            
+            # Style position column with full CSS styles
+            elif col == 'POS':
+                pos_styles = {
+                    'F': 'background-color: #188ae2; color: #fff; border: 1px solid #188ae2;',
+                    'D': 'background-color: #5b69bc; color: #fff; border: 1px solid #5b69bc;',
+                    'G': 'background-color: #3b3e47; color: #fff; border: 1px solid #3b3e47;'
+                }
+                pos_style = pos_styles.get(cell_value, 'background-color: #b2b2b2; color: #fff;')
+                cell_value = f'<span style="padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500; {pos_style}">{cell_value}</span>'
+            
+            # Style team column with full CSS styles
+            elif col == 'FCHL TEAM' and cell_value in teams_data:
+                panel_id = teams_data[cell_value].get('id', 1)
+                team_styles = {
+                    1: 'background: linear-gradient(to right, #ea217b, #ff7e31); color: #fff;',
+                    2: 'background: linear-gradient(to right, #000, #464646); color: #fff;',
+                    3: 'background: linear-gradient(to right, #F4DD2E, #E02B15); color: #000;',
+                    4: 'background: linear-gradient(to right, #26535f, #ed8e37); color: #fff;',
+                    5: 'background: linear-gradient(to right, #0D4499, #E7CD38); color: #fff;',
+                    6: 'background: linear-gradient(to right, #003876, #001f43); color: #fff;',
+                    7: 'background: linear-gradient(to right, #012169, #FC4C02); color: #fff;',
+                    8: 'background: linear-gradient(to right, #000, #d10000); color: #fff;',
+                    9: 'background: linear-gradient(to right, #164846, #80C042); color: #fff;',
+                    10: 'background: linear-gradient(to right, #172b1d, #8eaf38); color: #fff;',
+                    11: 'background: linear-gradient(to right, #BD2F2E, #815061); color: #fff;'
+                }
+                team_style = team_styles.get(panel_id, 'background-color: #f0f0f0; color: #666;')
+                cell_value = f'<span style="padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500; {team_style}">{cell_value}</span>'
+            
+            html_table += f"<td style='{style}'>{cell_value}</td>"
+        html_table += "</tr>"
+    
+    html_table += "</tbody></table></div>"
+    
+    st.markdown(html_table, unsafe_allow_html=True)
+    
+    return display_df
+
+def format_player_with_logo(player_name, nhl_team):
+    """Format player name with NHL team logo (simplified for display)"""
+    return f"🏒 {player_name}"  # Simple fallback while we work on the styling
 
 def format_group_badge(group):
     """Format group with appropriate styling"""
-    return f'<span class="group-badge group-{group}">{group}</span>'
+    return group
 
 def format_position_badge(position):
     """Format position with appropriate styling"""
-    return f'<span class="position-badge position-{position}">{position}</span>'
+    return position
 
 def format_team_badge(team_code):
     """Format team with appropriate styling"""
-    if team_code in teams_data:
-        panel_id = teams_data[team_code].get('id', 1)
-        return f'<span class="team-badge panel-{panel_id}">{team_code}</span>'
     return team_code
 
 # Initialize session state
@@ -226,33 +322,12 @@ def remaining_players_interface():
         # Display available players with NHL logos and styling
         if not filtered_df.empty:
             display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'GROUP', 'BID']
-            display_df = filtered_df[display_columns].copy()
             
-            # Create formatted player names with NHL logos
-            display_df['PLAYER_FORMATTED'] = display_df.apply(
-                lambda row: format_player_with_logo(row['PLAYER'], row['NHL TEAM']), axis=1
-            )
-            
-            # Prepare styled dataframe
-            styled_display = display_df[['PLAYER_FORMATTED', 'POS', 'PTS', 'GROUP', 'BID']].copy()
-            styled_display.columns = ['Player', 'Pos', 'Points', 'Group', 'Optimal Bid']
-            
-            st.dataframe(
-                styled_display,
-                use_container_width=True,
-                height=400,
-                column_config={
-                    "Optimal Bid": st.column_config.NumberColumn(
-                        "Optimal Bid",
-                        format="$%.1f",
-                        help="Model's recommended bid price"
-                    ),
-                    "Points": st.column_config.NumberColumn("Points"),
-                    "Group": st.column_config.TextColumn("Group"),
-                    "Player": st.column_config.TextColumn("Player"),
-                    "Pos": st.column_config.TextColumn("Pos")
-                },
-                hide_index=True
+            # Use the custom styled display function
+            display_styled_dataframe(
+                filtered_df, 
+                display_columns, 
+                show_logos=True
             )
             
             st.info(f"Showing {len(filtered_df)} available players for auction")
@@ -316,6 +391,94 @@ def remaining_players_interface():
         
     else:
         st.info("No players currently available for auction")
+
+def database_interface():
+    """Database management interface"""
+    st.subheader("🗃️ Database Management")
+    
+    try:
+        if 'db' not in st.session_state:
+            st.session_state.db = FantasyDatabase()
+            st.session_state.db.init_database()
+        
+        db = st.session_state.db
+        
+        # Database status
+        st.success("✅ Database connected and initialized")
+        
+        # Session management
+        st.markdown("**Auction Sessions:**")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Create new session
+            new_session_name = st.text_input("New Session Name", placeholder="Enter session name")
+            if st.button("🆕 Create Session") and new_session_name:
+                session_id = db.create_auction_session(new_session_name)
+                st.success(f"Created session: {new_session_name} (ID: {session_id})")
+                st.rerun()
+        
+        with col2:
+            # Active session info
+            active_session = db.get_active_session()
+            if active_session:
+                st.info(f"**Active Session:** {active_session['name']} (ID: {active_session['id']})")
+            else:
+                st.warning("No active session")
+        
+        # Save current data to database
+        if st.session_state.auction is not None and st.session_state.players_df is not None:
+            st.markdown("**Data Operations:**")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("💾 Save to Database"):
+                    if active_session:
+                        db.save_players_data(st.session_state.players_df, active_session['id'])
+                        # Also save team budgets
+                        team_budgets = st.session_state.auction.get_team_budgets()
+                        db.update_team_budgets(active_session['id'], team_budgets)
+                        st.success("Data saved to database!")
+                    else:
+                        st.error("No active session. Create a session first.")
+            
+            with col2:
+                if st.button("📥 Load from Database") and active_session:
+                    loaded_df = db.load_players_data(active_session['id'])
+                    if not loaded_df.empty:
+                        st.session_state.players_df = loaded_df
+                        st.session_state.auction = FantasyAuction(df=loaded_df)
+                        st.session_state.auction.process_data()
+                        st.success("Data loaded from database!")
+                        st.rerun()
+                    else:
+                        st.warning("No data found in database for this session")
+            
+            with col3:
+                if st.button("📊 Auto-save"):
+                    st.session_state.auto_save = not st.session_state.get('auto_save', False)
+                    status = "enabled" if st.session_state.auto_save else "disabled"
+                    st.info(f"Auto-save {status}")
+        
+        # Display session list
+        st.markdown("**All Sessions:**")
+        sessions_df = db.get_session_list()
+        if not sessions_df.empty:
+            st.dataframe(sessions_df, use_container_width=True)
+        
+        # Auction history
+        if active_session:
+            st.markdown("**Auction History:**")
+            history_df = db.get_auction_history(active_session['id'])
+            if not history_df.empty:
+                st.dataframe(history_df[['timestamp', 'player_name', 'from_team', 'to_team', 'auction_price', 'action_type']], 
+                           use_container_width=True)
+            else:
+                st.info("No auction history for this session")
+    
+    except Exception as e:
+        st.error(f"Database error: {str(e)}")
+        st.info("Make sure the database is properly configured with environment variables.")
 
 def auto_recalculate():
     """Auto-recalculate when data changes"""
@@ -437,20 +600,16 @@ def team_preview_interface():
             sorted_roster['sort_key'] = sorted_roster.apply(get_sort_key, axis=1)
             sorted_roster = sorted_roster.sort_values('sort_key').drop('sort_key', axis=1)
             
-            # Display roster with editable fields (removed BID column)
+            # First show a styled read-only view
+            st.markdown("**Team Roster (with styling):**")
             display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']
+            display_styled_dataframe(sorted_roster, display_columns, show_logos=True)
             
-            # Prepare display data with formatted cells
-            display_data = sorted_roster[display_columns].copy()
-            
-            # Create formatted player names with NHL logos
-            display_data['PLAYER_FORMATTED'] = display_data.apply(
-                lambda row: format_player_with_logo(row['PLAYER'], row['NHL TEAM']), axis=1
-            )
-            
-            # Create styled dataframe for display
-            styled_display = display_data[['PLAYER_FORMATTED', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']].copy()
-            styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary']
+            st.markdown("**Edit Team Status & Salary:**")
+            # Then show editable version for changes
+            edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'SALARY']
+            styled_display = sorted_roster[edit_columns].copy()
+            styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', '✏️ Salary']
             
             # Create editable data with styling
             edited_df = st.data_editor(
@@ -631,7 +790,7 @@ def main():
         
     else:
         # Create tabs for different sections
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Budget Summary", "🤖 BOT Team", "👥 Team Preview", "📋 Remaining Players"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["📊 Budget Summary", "🤖 BOT Team", "👥 Team Preview", "📋 Remaining Players", "🗃️ Database"])
         
         with tab1:
             display_team_budgets()
@@ -644,6 +803,9 @@ def main():
             
         with tab4:
             remaining_players_interface()
+        
+        with tab5:
+            database_interface()
 
 if __name__ == "__main__":
     main()
