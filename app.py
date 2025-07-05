@@ -127,7 +127,7 @@ def display_styled_dataframe(df, columns, title="", show_logos=True):
                 nhl_team = df.loc[idx, 'NHL TEAM'] if 'NHL TEAM' in df.columns else ''
                 logo_b64 = get_logo_base64(nhl_team)
                 if logo_b64:
-                    cell_value = f'<img src="data:image/png;base64,{logo_b64}" style="width: 20px; height: 20px; margin-right: 5px; vertical-align: middle;">{cell_value}'
+                    cell_value = f'<img src="data:image/png;base64,{logo_b64}" style="width: 20px; height: 20px; margin-right: 5px; vertical-align: middle; object-fit: contain;">{cell_value}'
             
             # Style group column with full CSS styles
             elif col == 'GROUP':
@@ -321,7 +321,7 @@ def remaining_players_interface():
         
         # Display available players with NHL logos and styling
         if not filtered_df.empty:
-            display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'GROUP', 'BID']
+            display_columns = ['PLAYER', 'POS', 'PTS', 'GROUP', 'BID']
             
             # Use the custom styled display function
             display_styled_dataframe(
@@ -505,35 +505,94 @@ def bot_team_interface():
     # Current BOT roster
     bot_roster = st.session_state.auction.get_team_roster('BOT')
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Current BOT Roster")
-        if not bot_roster.empty:
-            display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY', 'BID']
-            bot_display = bot_roster[display_columns].copy()
-            st.dataframe(bot_display, use_container_width=True, height=300)
-            
-            # BOT team summary
-            f_count = len(bot_roster[bot_roster['POS'] == 'F'])
-            d_count = len(bot_roster[bot_roster['POS'] == 'D'])
-            g_count = len(bot_roster[bot_roster['POS'] == 'G'])
-            total_salary = bot_roster['SALARY'].sum()
-            total_bid = bot_roster['BID'].sum()
-            
-            st.write(f"**Current:** {f_count}F / {d_count}D / {g_count}G")
-            st.write(f"**Total Cost:** ${total_salary + total_bid:.1f}")
-        else:
-            st.info("No players currently on BOT roster")
-    
-    with col2:
-        st.subheader("Budget & Requirements")
-        team_budgets = st.session_state.auction.get_team_budgets()
-        bot_budget = team_budgets.get('BOT', {})
+    st.subheader("Current BOT Roster")
+    if not bot_roster.empty:
+        # Show styled view first
+        st.markdown("**BOT Team Roster (with styling):**")
+        display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'FCHL TEAM', 'SALARY']
+        display_styled_dataframe(bot_roster, display_columns, show_logos=True)
         
-        if bot_budget:
+        # Then show editable version for changes
+        st.markdown("**Edit BOT Team Status & Salary:**")
+        edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'SALARY']
+        styled_display = bot_roster[edit_columns].copy()
+        styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', '✏️ Salary']
+        
+        # Create editable data with styling
+        edited_df = st.data_editor(
+            styled_display,
+            use_container_width=True,
+            height=300,
+            column_config={
+                "✏️ Status": st.column_config.SelectboxColumn(
+                    "Status",
+                    options=["START", "MINOR"],
+                    help="Player status affects budget calculation"
+                ),
+                "✏️ Salary": st.column_config.NumberColumn(
+                    "Salary",
+                    min_value=0.0,
+                    max_value=15.0,
+                    step=0.1,
+                    format="$%.1f"
+                )
+            },
+            disabled=["Player", "Pos", "Points", "Group", "FCHL Team"],
+            hide_index=True
+        )
+        
+        # Handle changes
+        if not edited_df.equals(styled_display):
+            for idx, (old_row, new_row) in enumerate(zip(styled_display.itertuples(), edited_df.itertuples())):
+                if old_row.Status != new_row.Status:
+                    player_idx = bot_roster.index[idx]
+                    st.session_state.auction.update_player_status(player_idx, new_row.Status)
+                
+                if abs(old_row.Salary - new_row.Salary) > 0.05:
+                    player_idx = bot_roster.index[idx]
+                    st.session_state.auction.update_player_salary(player_idx, new_row.Salary)
+            
+            auto_recalculate()
+            st.rerun()
+        
+        # Player removal
+        st.markdown("**Remove Players:**")
+        player_options = [(idx, f"{row['PLAYER']} ({row['POS']}) - ${row['SALARY']:.1f}") 
+                         for idx, row in bot_roster.iterrows()]
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_player = st.selectbox(
+                "Select Player to Remove",
+                options=[None] + player_options,
+                format_func=lambda x: "Select a player..." if x is None else x[1],
+                key="bot_remove_player_select"
+            )
+        
+        with col2:
+            if st.button("Remove Player", key="bot_remove_player_btn") and selected_player is not None:
+                player_idx = selected_player[0]
+                player_name = selected_player[1].split(' (')[0]
+                st.session_state.auction.remove_player_from_team(player_idx)
+                auto_recalculate()
+                st.success(f"Removed {player_name} from BOT roster")
+                st.rerun()
+    
+    else:
+        st.info("No players currently on BOT roster")
+    
+    # Budget & Requirements section moved below
+    st.subheader("Budget & Requirements")
+    team_budgets = st.session_state.auction.get_team_budgets()
+    bot_budget = team_budgets.get('BOT', {})
+    
+    if bot_budget:
+        col1, col2, col3 = st.columns(3)
+        with col1:
             st.metric("Remaining Budget", f"${bot_budget.get('remaining', 0):.1f}")
+        with col2:
             st.write(f"**Target:** {FORWARD}F / {DEFENCE}D / {GOALIE}G")
+        with col3:
             st.write(f"**Current:** {bot_budget.get('f_count', 0)}F / {bot_budget.get('d_count', 0)}D / {bot_budget.get('g_count', 0)}G")
     
     # Display optimal team if available
@@ -600,13 +659,13 @@ def team_preview_interface():
             sorted_roster['sort_key'] = sorted_roster.apply(get_sort_key, axis=1)
             sorted_roster = sorted_roster.sort_values('sort_key').drop('sort_key', axis=1)
             
-            # First show a styled read-only view
+            # Show styled view first
             st.markdown("**Team Roster (with styling):**")
-            display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']
+            display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'FCHL TEAM', 'SALARY']
             display_styled_dataframe(sorted_roster, display_columns, show_logos=True)
             
-            st.markdown("**Edit Team Status & Salary:**")
             # Then show editable version for changes
+            st.markdown("**Edit Team Status & Salary:**")
             edit_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'SALARY']
             styled_display = sorted_roster[edit_columns].copy()
             styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', '✏️ Salary']
