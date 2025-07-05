@@ -86,6 +86,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 05, 2025 - Automatic CSV Loading Implementation
+- Saved players-24.csv permanently in project root directory
+- Modified main() function to automatically load CSV data on startup
+- Removed file upload requirement - app now starts immediately with player data
+- Simplified sidebar by removing upload controls and showing only reset button
+- Enhanced error handling for missing or corrupted CSV files
+- Streamlined user experience - no more manual CSV uploads needed
+
 ### July 05, 2025 - Complete Interface Overhaul and Bug Fixes
 - Removed duplicate tables from Team Preview and BOT Team pages - single table with styling now shown
 - Applied gradient styling to team roster headers ("Heskel Salims Roster" style) 
