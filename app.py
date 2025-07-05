@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import json
+import base64
+import os
 from fantasy_auction import FantasyAuction, teams_data, SALARY, FORWARD, DEFENCE, GOALIE
 
 # Page configuration
@@ -10,6 +12,97 @@ st.set_page_config(
     page_icon="🏒",
     layout="wide"
 )
+
+# CSS styling for groups, positions, and teams
+def load_custom_css():
+    css = """
+    <style>
+    /* Group styling */
+    .group-3 { border: 1px solid rgba(69, 90, 100, 0) !important; background-color: rgba(69, 90, 100, 0.1) !important; color: #455a64 !important; }
+    .group-2 { border: 1px solid rgba(67, 160, 71, 0) !important; background-color: rgba(67, 160, 71, 0.1) !important; color: #43a047 !important; }
+    .group-A { border: 1px solid rgba(41, 182, 246, 0) !important; background-color: rgba(41, 182, 246, 0.1) !important; color: #29b6f6 !important; }
+    .group-B { border: 1px solid rgba(3, 169, 244, 0) !important; background-color: rgba(3, 169, 244, 0.1) !important; color: #03a9f4 !important; }
+    .group-C { border: 1px solid rgba(3, 155, 229, 0) !important; background-color: rgba(3, 155, 229, 0.1) !important; color: #039be5 !important; }
+    .group-D { border: 1px solid rgba(2, 136, 209, 0) !important; background-color: rgba(2, 136, 209, 0.1) !important; color: #0288d1 !important; }
+    .group-E { border: 1px solid rgba(2, 119, 189, 0) !important; background-color: rgba(2, 119, 189, 0.1) !important; color: #0277bd !important; }
+    .group-F { border: 1px solid rgba(1, 87, 155, 0) !important; background-color: rgba(1, 87, 155, 0.1) !important; color: #01579b !important; }
+    .group-G { border: 1px solid rgba(1, 87, 155, 0) !important; background-color: rgba(1, 87, 155, 0.1) !important; color: #01579b !important; }
+    .group-T { border: 1px solid rgba(240, 98, 146, 0) !important; background-color: rgba(240, 98, 146, 0.1) !important; color: #f06292 !important; }
+    .group-RFA1 { border: 1px solid #fff3e0 !important; background-color: #fff3e0 !important; color: #ff9800 !important; }
+    .group-RFA2 { border: 1px solid #ffcc80 !important; background-color: #ffcc80 !important; color: #e65100 !important; }
+    
+    /* Position styling */
+    .position-F { border: 1px solid #188ae2 !important; background-color: #188ae2 !important; color: #fff !important; }
+    .position-D { border: 1px solid #5b69bc !important; background-color: #5b69bc !important; color: #fff !important; }
+    .position-G { border: 1px solid #3b3e47 !important; background-color: #3b3e47 !important; color: #fff !important; }
+    
+    /* Team panel styling */
+    .panel-1 { background: linear-gradient(to right, #ea217b, #ff7e31); color: #fff; }
+    .panel-2 { background: linear-gradient(to right, #000, #464646); color: #fff; }
+    .panel-3 { background: linear-gradient(to right, #F4DD2E, #E02B15); color: #000; }
+    .panel-4 { background: linear-gradient(to right, #26535f, #ed8e37); color: #fff; }
+    .panel-5 { background: linear-gradient(to right, #0D4499, #E7CD38); color: #fff; }
+    .panel-6 { background: linear-gradient(to right, #003876, #001f43); color: #fff; }
+    .panel-7 { background: linear-gradient(to right, #012169, #FC4C02); color: #fff; }
+    .panel-8 { background: linear-gradient(to right, #000, #d10000); color: #fff; }
+    .panel-9 { background: linear-gradient(to right, #164846, #80C042); color: #fff; }
+    .panel-10 { background: linear-gradient(to right, #172b1d, #8eaf38); color: #fff; }
+    .panel-11 { background: linear-gradient(to right, #BD2F2E, #815061); color: #fff; }
+    
+    /* Styling for badges */
+    .group-badge, .position-badge, .team-badge {
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.85em;
+        font-weight: 500;
+        display: inline-block;
+        margin: 1px;
+    }
+    
+    .nhl-logo {
+        width: 20px;
+        height: 20px;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+# Helper functions for styling
+def get_nhl_logo_path(team_code):
+    """Get the path to NHL team logo"""
+    logo_path = f"assets/nhl_logos/{team_code}.png"
+    if os.path.exists(logo_path):
+        return logo_path
+    return None
+
+def format_player_with_logo(player_name, nhl_team):
+    """Format player name with NHL team logo"""
+    logo_path = get_nhl_logo_path(nhl_team)
+    if logo_path:
+        try:
+            with open(logo_path, "rb") as f:
+                encoded_logo = base64.b64encode(f.read()).decode()
+            return f'<img src="data:image/png;base64,{encoded_logo}" class="nhl-logo">{player_name}'
+        except:
+            return player_name
+    return player_name
+
+def format_group_badge(group):
+    """Format group with appropriate styling"""
+    return f'<span class="group-badge group-{group}">{group}</span>'
+
+def format_position_badge(position):
+    """Format position with appropriate styling"""
+    return f'<span class="position-badge position-{position}">{position}</span>'
+
+def format_team_badge(team_code):
+    """Format team with appropriate styling"""
+    if team_code in teams_data:
+        panel_id = teams_data[team_code].get('id', 1)
+        return f'<span class="team-badge panel-{panel_id}">{team_code}</span>'
+    return team_code
 
 # Initialize session state
 if 'auction' not in st.session_state:
@@ -130,24 +223,36 @@ def remaining_players_interface():
         elif sort_by == "Player Name":
             filtered_df = filtered_df.sort_values('PLAYER')
         
-        # Display available players
+        # Display available players with NHL logos and styling
         if not filtered_df.empty:
-            display_columns = ['PLAYER', 'POS', 'PTS', 'GROUP', 'BID']
+            display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'GROUP', 'BID']
             display_df = filtered_df[display_columns].copy()
             
+            # Create formatted player names with NHL logos
+            display_df['PLAYER_FORMATTED'] = display_df.apply(
+                lambda row: format_player_with_logo(row['PLAYER'], row['NHL TEAM']), axis=1
+            )
+            
+            # Prepare styled dataframe
+            styled_display = display_df[['PLAYER_FORMATTED', 'POS', 'PTS', 'GROUP', 'BID']].copy()
+            styled_display.columns = ['Player', 'Pos', 'Points', 'Group', 'Optimal Bid']
+            
             st.dataframe(
-                display_df,
+                styled_display,
                 use_container_width=True,
                 height=400,
                 column_config={
-                    "BID": st.column_config.NumberColumn(
+                    "Optimal Bid": st.column_config.NumberColumn(
                         "Optimal Bid",
                         format="$%.1f",
                         help="Model's recommended bid price"
                     ),
-                    "PTS": st.column_config.NumberColumn("Points"),
-                    "GROUP": st.column_config.TextColumn("Group")
-                }
+                    "Points": st.column_config.NumberColumn("Points"),
+                    "Group": st.column_config.TextColumn("Group"),
+                    "Player": st.column_config.TextColumn("Player"),
+                    "Pos": st.column_config.TextColumn("Pos")
+                },
+                hide_index=True
             )
             
             st.info(f"Showing {len(filtered_df)} available players for auction")
@@ -322,20 +427,42 @@ def team_preview_interface():
         if not team_roster.empty:
             st.subheader(f"{teams_data[selected_team]['name']} Roster")
             
-            # Display roster with editable fields
-            display_columns = ['PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY', 'BID']
+            # Sort roster: START/MINOR first, then by Position
+            def get_sort_key(row):
+                status_order = {'START': 0, 'MINOR': 1, 'AUCTION': 2, 'UFA': 3, 'RFA': 4, 'ENT': 5}
+                position_order = {'F': 0, 'D': 1, 'G': 2}
+                return (status_order.get(row['STATUS'], 9), position_order.get(row['POS'], 9))
+            
+            sorted_roster = team_roster.copy()
+            sorted_roster['sort_key'] = sorted_roster.apply(get_sort_key, axis=1)
+            sorted_roster = sorted_roster.sort_values('sort_key').drop('sort_key', axis=1)
+            
+            # Display roster with editable fields (removed BID column)
+            display_columns = ['PLAYER', 'NHL TEAM', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']
+            
+            # Prepare display data with formatted cells
+            display_data = sorted_roster[display_columns].copy()
+            
+            # Create formatted player names with NHL logos
+            display_data['PLAYER_FORMATTED'] = display_data.apply(
+                lambda row: format_player_with_logo(row['PLAYER'], row['NHL TEAM']), axis=1
+            )
+            
+            # Create styled dataframe for display
+            styled_display = display_data[['PLAYER_FORMATTED', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY']].copy()
+            styled_display.columns = ['Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary']
             
             # Create editable data with styling
             edited_df = st.data_editor(
-                team_roster[display_columns],
+                styled_display,
                 column_config={
-                    "STATUS": st.column_config.SelectboxColumn(
+                    "✏️ Status": st.column_config.SelectboxColumn(
                         "✏️ Status",  # Edit indicator
                         options=["START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"],
                         required=True,
                         help="Editable: Change player status"
                     ),
-                    "SALARY": st.column_config.NumberColumn(
+                    "✏️ Salary": st.column_config.NumberColumn(
                         "✏️ Salary",  # Edit indicator
                         min_value=0.0,
                         max_value=20.0,
@@ -343,38 +470,28 @@ def team_preview_interface():
                         format="$%.1f",
                         help="Editable: Adjust salary if needed"
                     ),
-                    "BID": st.column_config.NumberColumn(
-                        "✏️ Bid",  # Edit indicator
-                        min_value=0.0,
-                        max_value=20.0,
-                        step=0.1,
-                        format="$%.1f",
-                        help="Editable: Adjust bid if needed"
-                    ),
-                    "PLAYER": st.column_config.TextColumn("Player", disabled=True),
-                    "POS": st.column_config.TextColumn("Pos", disabled=True),
-                    "PTS": st.column_config.NumberColumn("Points", disabled=True),
-                    "GROUP": st.column_config.TextColumn("Group", disabled=True)
+                    "Player": st.column_config.TextColumn("Player", disabled=True),
+                    "Pos": st.column_config.TextColumn("Pos", disabled=True),
+                    "Points": st.column_config.NumberColumn("Points", disabled=True),
+                    "Group": st.column_config.TextColumn("Group", disabled=True)
                 },
                 use_container_width=True,
                 height=400,
                 key=f"team_editor_{selected_team}",
-                on_change=lambda: auto_recalculate()  # Auto-recalculate on change
+                on_change=lambda: auto_recalculate(),  # Auto-recalculate on change
+                hide_index=True
             )
             
             # Check for changes and apply them
-            for idx, (original_idx, row) in enumerate(team_roster.iterrows()):
+            for idx, (original_idx, row) in enumerate(sorted_roster.iterrows()):
                 if idx < len(edited_df):
-                    new_status = edited_df.iloc[idx]['STATUS']
-                    new_salary = edited_df.iloc[idx]['SALARY']
-                    new_bid = edited_df.iloc[idx]['BID']
+                    new_status = edited_df.iloc[idx]['✏️ Status']
+                    new_salary = edited_df.iloc[idx]['✏️ Salary']
                     
                     if row['STATUS'] != new_status:
                         st.session_state.auction.update_player_status(original_idx, new_status)
                     if abs(row['SALARY'] - new_salary) > 0.01:
                         st.session_state.auction.update_player_salary(original_idx, new_salary)
-                    if abs(row['BID'] - new_bid) > 0.01:
-                        st.session_state.auction.update_player_bid(original_idx, new_bid)
             
             # Remove player button
             st.markdown("**Remove Player from Team:**")
@@ -392,35 +509,31 @@ def team_preview_interface():
                     st.success(f"Removed {player_to_remove[1].split(' (')[0]} from team")
                     st.rerun()
             
-            # Team composition and budget summary
+            # Team composition and budget summary - sorted by START/MINOR first, then Position
             composition = st.session_state.auction.get_team_composition(selected_team)
             team_budgets = st.session_state.auction.get_team_budgets()
             budget = team_budgets[selected_team]
             
-            st.markdown("**Team Composition:**")
+            st.markdown("**Team Composition (sorted by START/MINOR, then Position):**")
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.write(f"**Forwards:** {composition['total_f']} total")
-                st.write(f"  - START: {composition['start_f']}")
-                st.write(f"  - MINOR: {composition['minor_f']}")
+                st.write(f"**START Forwards:** {composition['start_f']}")
+                st.write(f"**MINOR Forwards:** {composition['minor_f']}")
+                st.write(f"**Total Forwards:** {composition['total_f']}")
             with col2:
-                st.write(f"**Defense:** {composition['total_d']} total")
-                st.write(f"  - START: {composition['start_d']}")
-                st.write(f"  - MINOR: {composition['minor_d']}")
+                st.write(f"**START Defense:** {composition['start_d']}")
+                st.write(f"**MINOR Defense:** {composition['minor_d']}")
+                st.write(f"**Total Defense:** {composition['total_d']}")
             with col3:
-                st.write(f"**Goalies:** {composition['total_g']} total")
-                st.write(f"  - START: {composition['start_g']}")
-                st.write(f"  - MINOR: {composition['minor_g']}")
+                st.write(f"**START Goalies:** {composition['start_g']}")
+                st.write(f"**MINOR Goalies:** {composition['minor_g']}")
+                st.write(f"**Total Goalies:** {composition['total_g']}")
             
             st.markdown("**Budget Summary:**")
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2 = st.columns(2)
             with col1:
                 st.metric("Committed Salary", f"${budget['committed_salary']:.1f}")
             with col2:
-                st.metric("Auction Spending", f"${budget['auction_spending']:.1f}")
-            with col3:
-                st.metric("Total Spent", f"${budget['total_spent']:.1f}")
-            with col4:
                 st.metric("Remaining Budget", f"${budget['remaining']:.1f}")
                 
         else:
@@ -434,9 +547,12 @@ def optimization_interface():
     # Show both BOT optimization and team management
     bot_team_interface()
     st.markdown("---")
-    team_management_interface()
+    team_preview_interface()
 
 def main():
+    # Load custom CSS styling
+    load_custom_css()
+    
     st.title("🏒 Fantasy Hockey Auction Manager")
     st.markdown("Manage your fantasy hockey auction with real-time budget tracking and optimization")
     

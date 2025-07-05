@@ -86,9 +86,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 05, 2025 - Enhanced Visual Design with NHL Team Logos and Custom CSS
+- Added NHL team logos next to player names throughout the interface
+- Implemented custom CSS styling for groups (A-G colors) and positions (F/D/G colors) 
+- Applied team-specific color gradients matching website design (panel-1 through panel-11)
+- Removed Bid column from Team Preview (only salary shown for assigned players)
+- Enhanced Team Preview sorting: START/MINOR status first, then by position (F/D/G)
+- Simplified budget display by removing "Auction Spending" and "Total Spent" metrics
+- Added visual styling badges for better data presentation consistency
+
 ### July 05, 2025 - Auto-Reactive Interface with Enhanced Editing
 - Implemented automatic recalculation and optimization when data changes (removed manual buttons)
-- Enhanced Team Preview with visual indicators for editable fields (✏️ Status, Salary, Bid)
+- Enhanced Team Preview with visual indicators for editable fields (✏️ Status, Salary)
 - Added real-time auto-updating of budgets and optimal team when cells are edited
 - Replaced Player Assignment with focused "Remaining Players" interface showing only auction-available players
 - Added player removal functionality to return players to auction pool
