@@ -86,13 +86,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### July 06, 2025 - DigitalOcean Deployment Configuration
-- Created DigitalOcean App Platform deployment configuration (.do/app.yaml)
-- Added Dockerfile with SCIP solver installation for PySCIPOpt support
-- Created deployment-ready requirements.txt (requirements_do.txt)
-- Configured Streamlit for cloud deployment with proper port and CORS settings
-- Added runtime.txt specifying Python 3.11.10
-- Set up environment variables for SCIP optimization library
+### July 06, 2025 - DigitalOcean Deployment with Conda-based SCIP Installation
+- Fixed DigitalOcean build timeout by switching to conda-forge for SCIP installation
+- Created Dockerfile.conda using miniconda3 base image for reliable PySCIPOpt support
+- Maintained full optimization functionality for real-time BOT lineup calculations
+- Added Railway.app as alternative deployment platform (railway.json configuration)
+- Created comprehensive deployment documentation and troubleshooting guides
+- Confirmed optimization engine is essential for auction workflow (salary/assignment changes trigger recalculation)
 
 ### July 06, 2025 - NHL Logo Column and Bug Fixes
 - Added NHL Team logo column to Team Preview using ImageColumn
