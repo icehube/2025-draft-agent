@@ -859,8 +859,18 @@ def team_preview_interface():
             # Format Group column with styling  
             styled_display['GROUP'] = styled_display['GROUP'].apply(format_group_badge)
             
-            # Create logo paths for NHL teams - insert after NHL TEAM column
-            styled_display.insert(3, 'Logo', styled_display['NHL TEAM'].apply(lambda x: get_nhl_logo_path(x) if pd.notna(x) else None))
+            # Create base64 encoded logos for NHL teams - insert after NHL TEAM column
+            def get_logo_data_url(team_code):
+                if pd.notna(team_code):
+                    logo_path = get_nhl_logo_path(team_code)
+                    if logo_path and os.path.exists(logo_path):
+                        with open(logo_path, "rb") as f:
+                            import base64
+                            encoded = base64.b64encode(f.read()).decode()
+                            return f"data:image/png;base64,{encoded}"
+                return None
+            
+            styled_display.insert(3, 'Logo', styled_display['NHL TEAM'].apply(get_logo_data_url))
             
             # Rename columns for display (8 columns total)
             styled_display.columns = [
