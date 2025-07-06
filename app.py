@@ -830,9 +830,26 @@ def team_preview_interface():
             """,
                         unsafe_allow_html=True)
 
+            # Budget Summary - always show current state
+            team_budgets = st.session_state.auction.get_team_budgets()
+            team_budget = team_budgets.get(selected_team, {})
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # Display used budget
+                if team_budget:
+                    used_budget = team_budget['total_spent']
+                    st.metric("Used Budget", f"${used_budget:.1f}")
+
+            with col2:
+                if team_budget:
+                    st.metric("Remaining Budget",
+                              f"${team_budget.get('remaining', 0):.1f}")
+
             # Single editable table with position and group styling
             edit_columns = [
-                'PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY'
+                'PLAYER', 'POS', 'NHL TEAM', 'PTS', 'STATUS', 'GROUP', 'SALARY'
             ]
             styled_display = sorted_roster[edit_columns].copy()
             
@@ -842,9 +859,12 @@ def team_preview_interface():
             # Format Group column with styling  
             styled_display['GROUP'] = styled_display['GROUP'].apply(format_group_badge)
             
+            # Create logo paths for NHL teams
+            styled_display['NHL TEAM LOGO'] = styled_display['NHL TEAM'].apply(lambda x: get_nhl_logo_path(x) if pd.notna(x) else None)
+            
             # Rename columns for display
             styled_display.columns = [
-                'Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary'
+                'Player', 'Pos', 'NHL Team', 'Logo', 'Points', '✏️ Status', 'Group', '✏️ Salary'
             ]
 
             # Single editable data editor with styled columns
@@ -873,17 +893,23 @@ def team_preview_interface():
                     ),
                     "Player": st.column_config.TextColumn("Player", disabled=True),
                     "Pos": st.column_config.Column("Pos", disabled=True),
+                    "NHL Team": st.column_config.TextColumn("NHL Team", disabled=True),
+                    "Logo": st.column_config.ImageColumn(
+                        "Logo",
+                        help="NHL Team Logo",
+                        width="small"
+                    ),
                     "Points": st.column_config.NumberColumn("Points", disabled=True),
                     "Group": st.column_config.Column("Group", disabled=True)
                 },
                 use_container_width=True,
                 key=f"team_editor_{selected_team}",
+                height=25*(len(styled_display)+1),
                 hide_index=True
             )
 
             # Save Changes Button
-            st.markdown("---")
-            col_save, col_space = st.columns([1, 3])
+            col_save, col_space = st.columns([1,2])
             with col_save:
                 if st.button("💾 Save Changes & Recalculate", key=f"save_changes_{selected_team}", type="primary"):
                     changes_made = False
@@ -910,22 +936,7 @@ def team_preview_interface():
                     else:
                         st.info("No changes detected")
 
-            # Budget Summary - always show current state
-            team_budgets = st.session_state.auction.get_team_budgets()
-            team_budget = team_budgets.get(selected_team, {})
-
-            col1, col2 = st.columns([2, 1])
-
-            with col1:
-                # Display used budget
-                if team_budget:
-                    used_budget = team_budget['total_spent']
-                    st.metric("Used Budget", f"${used_budget:.1f}")
-
-            with col2:
-                if team_budget:
-                    st.metric("Remaining Budget",
-                              f"${team_budget.get('remaining', 0):.1f}")
+    
 
             # Team composition and budget summary - sorted by START/MINOR first, then Position
             composition = st.session_state.auction.get_team_composition(
@@ -959,13 +970,6 @@ def team_preview_interface():
                          hide_index=True,
                          use_container_width=True)
 
-            st.markdown("**Budget Summary:**")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Committed Salary",
-                          f"${budget['committed_salary']:.1f}")
-            with col2:
-                st.metric("Remaining Budget", f"${budget['remaining']:.1f}")
 
             # Remove Player section moved to bottom
             st.markdown("---")
