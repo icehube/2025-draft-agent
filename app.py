@@ -848,116 +848,56 @@ def team_preview_interface():
                     st.metric("Remaining Budget",
                               f"${team_budget.get('remaining', 0):.1f}")
 
-            # New section for styled display and editing
             # Single editable table with position and group styling
             edit_columns = [
                 'PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY'
             ]
             styled_display = sorted_roster[edit_columns].copy()
+            
+            # Format Position column with styling
+            styled_display['POS'] = styled_display['POS'].apply(format_position_badge)
+            
+            # Format Group column with styling  
+            styled_display['GROUP'] = styled_display['GROUP'].apply(format_group_badge)
+            
+            # Rename columns for display
             styled_display.columns = [
                 'Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary'
             ]
 
-            # Create editable data with position and group styling using display_styled_dataframe
-            st.markdown("**Edit Team Status & Salary:**")
-
-            # Create a custom styled table for editing
-            html_table = '<table style="width: 100%; border-collapse: collapse; margin: 10px 0;">'
-            html_table += '<thead><tr style="background-color: #f8f9fa;">'
-            headers = [
-                'Player', 'Pos', 'Points', '✏️ Status', 'Group', '✏️ Salary'
-            ]
-            for header in headers:
-                html_table += f'<th style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">{header}</th>'
-            html_table += '</tr></thead><tbody>'
-
-            # Add styled rows
-            for idx, row in styled_display.iterrows():
-                html_table += '<tr style="border-bottom: 1px solid #eee;">'
-
-                for col_idx, (col_name, cell_value) in enumerate(row.items()):
-                    if col_name == 'Pos':
-                        # Position styling
-                        pos_styles = {
-                            'F':
-                            'background-color: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'D':
-                            'background-color: #2196F3; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'G':
-                            'background-color: #FF9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;'
-                        }
-                        pos_style = pos_styles.get(
-                            cell_value,
-                            'background-color: #f0f0f0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 0.85em;'
-                        )
-                        cell_value = f'<span style="{pos_style}">{cell_value}</span>'
-
-                    elif col_name == 'Group':
-                        # Group styling
-                        group_styles = {
-                            'A':
-                            'background-color: #e74c3c; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'B':
-                            'background-color: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'C':
-                            'background-color: #f39c12; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'D':
-                            'background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'E':
-                            'background-color: #3498db; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'F':
-                            'background-color: #9b59b6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;',
-                            'G':
-                            'background-color: #95a5a6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: 500;'
-                        }
-                        group_style = group_styles.get(
-                            cell_value,
-                            'background-color: #f0f0f0; color: #666; padding: 2px 6px; border-radius: 4px; font-size: 0.85em;'
-                        )
-                        cell_value = f'<span style="{group_style}">{cell_value}</span>'
-
-                    html_table += f'<td style="padding: 8px; border: 1px solid #ddd;">{cell_value}</td>'
-
-                html_table += '</tr>'
-
-            html_table += '</tbody></table>'
-            st.markdown(html_table, unsafe_allow_html=True)
-
-            # Now show the regular data editor for actual editing
+            # Single editable data editor with styled columns
+            st.markdown("**Team Roster (Edit Status & Salary):**")
+            
+            # Keep original position and group values for comparison
+            original_pos = sorted_roster['POS'].tolist()
+            original_group = sorted_roster['GROUP'].tolist()
+            
             edited_df = st.data_editor(
                 styled_display,
                 column_config={
-                    "✏️ Status":
-                    st.column_config.SelectboxColumn(
+                    "✏️ Status": st.column_config.SelectboxColumn(
                         "✏️ Status",
-                        options=[
-                            "START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"
-                        ],
+                        options=["START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"],
                         required=True,
-                        help="Editable: Change player status"),
-                    "✏️ Salary":
-                    st.column_config.NumberColumn(
+                        help="Editable: Change player status"
+                    ),
+                    "✏️ Salary": st.column_config.NumberColumn(
                         "✏️ Salary",
                         min_value=0.0,
                         max_value=20.0,
                         step=0.1,
                         format="$%.1f",
-                        help="Editable: Adjust salary if needed"),
-                    "Player":
-                    st.column_config.TextColumn("Player", disabled=True),
-                    "Pos":
-                    st.column_config.TextColumn("Pos", disabled=True),
-                    "Points":
-                    st.column_config.NumberColumn("Points", disabled=True),
-                    "Group":
-                    st.column_config.TextColumn("Group", disabled=True)
+                        help="Editable: Adjust salary if needed"
+                    ),
+                    "Player": st.column_config.TextColumn("Player", disabled=True),
+                    "Pos": st.column_config.Column("Pos", disabled=True),
+                    "Points": st.column_config.NumberColumn("Points", disabled=True),
+                    "Group": st.column_config.Column("Group", disabled=True)
                 },
                 use_container_width=True,
-                height=400,
                 key=f"team_editor_{selected_team}",
-                on_change=lambda: auto_recalculate(
-                ),  # Auto-recalculate on change
-                hide_index=True)
+                hide_index=True
+            )
 
             # Check for changes and apply them
             for idx, (original_idx,

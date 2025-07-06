@@ -86,6 +86,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 06, 2025 - Team Preview Table Consolidation
+- Merged duplicate tables in Team Preview into single editable table
+- Applied position (F/D/G) and group (A-G) styling directly to editable data editor
+- Maintained gradient team headers while simplifying table display
+- Improved user experience with unified table showing all data with styling
+
 ### July 05, 2025 - Interface Redesign and Summary Page Overhaul
 - Set sidebar to be hidden on startup (collapsed state)
 - Moved title "🏒 2025 BOT Draft Agent" to hidden sidebar instead of main page
