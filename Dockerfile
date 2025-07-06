@@ -1,36 +1,16 @@
-# Use Python 3.11 slim image
-FROM python:3.11-slim
+# Use Python 3.11 image with conda for easier SCIP installation
+FROM continuumio/miniconda3:latest
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for SCIP
-RUN apt-get update && apt-get install -y \
-    wget \
-    build-essential \
-    libgmp-dev \
-    libreadline-dev \
-    libncurses5-dev \
-    zlib1g-dev \
-    libbz2-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install SCIP via conda-forge (much faster and more reliable)
+RUN conda install -c conda-forge scip pyscipopt -y \
+    && conda clean -afy
 
-# Download and install SCIP
-RUN wget -q https://scip.zib.de/download/release/scipoptsuite-8.0.4.tgz \
-    && tar -xzf scipoptsuite-8.0.4.tgz \
-    && cd scipoptsuite-8.0.4 \
-    && make SHARED=true \
-    && make install SHARED=true \
-    && cd .. \
-    && rm -rf scipoptsuite-8.0.4*
-
-# Set environment variables for SCIP
-ENV SCIPOPTDIR=/usr/local
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-
-# Copy requirements and install Python dependencies
+# Install additional Python dependencies via pip
 COPY requirements_do.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir streamlit pandas numpy psycopg2-binary sqlalchemy tabulate
 
 # Copy application files
 COPY . .
