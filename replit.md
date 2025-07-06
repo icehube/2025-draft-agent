@@ -86,6 +86,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### July 06, 2025 - DigitalOcean Deployment Configuration
+- Created DigitalOcean App Platform deployment configuration (.do/app.yaml)
+- Added Dockerfile with SCIP solver installation for PySCIPOpt support
+- Created deployment-ready requirements.txt (requirements_do.txt)
+- Configured Streamlit for cloud deployment with proper port and CORS settings
+- Added runtime.txt specifying Python 3.11.10
+- Set up environment variables for SCIP optimization library
+
 ### July 06, 2025 - NHL Logo Column and Bug Fixes
 - Added NHL Team logo column to Team Preview using ImageColumn
 - Fixed column structure issues and base64 encoding for proper logo display
