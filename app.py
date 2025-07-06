@@ -610,10 +610,11 @@ def auto_recalculate():
                 st.session_state.auction.build_model()
                 solution = st.session_state.auction.solve_model()
                 if solution:
-                    st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team(
-                    )
+                    st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
             except:
                 pass  # Silent fail for optimization
+        # Trigger rerun to refresh interface
+        st.rerun()
 
 
 def bot_team_interface():
@@ -896,22 +897,22 @@ def team_preview_interface():
                 },
                 use_container_width=True,
                 key=f"team_editor_{selected_team}",
-                hide_index=True
+                hide_index=True,
+                on_change=lambda: auto_recalculate()
             )
 
             # Check for changes and apply them
-            for idx, (original_idx,
-                      row) in enumerate(sorted_roster.iterrows()):
-                if idx < len(edited_df):
-                    new_status = edited_df.iloc[idx]['✏️ Status']
-                    new_salary = edited_df.iloc[idx]['✏️ Salary']
+            if edited_df is not None and len(edited_df) > 0:
+                for idx, (original_idx, row) in enumerate(sorted_roster.iterrows()):
+                    if idx < len(edited_df):
+                        new_status = edited_df.iloc[idx]['✏️ Status']
+                        new_salary = edited_df.iloc[idx]['✏️ Salary']
 
-                    if row['STATUS'] != new_status:
-                        st.session_state.auction.update_player_status(
-                            original_idx, new_status)
-                    if abs(row['SALARY'] - new_salary) > 0.01:
-                        st.session_state.auction.update_player_salary(
-                            original_idx, new_salary)
+                        if row['STATUS'] != new_status:
+                            st.session_state.auction.update_player_status(original_idx, new_status)
+                            
+                        if abs(row['SALARY'] - new_salary) > 0.01:
+                            st.session_state.auction.update_player_salary(original_idx, new_salary)
 
             # Team composition and budget summary - sorted by START/MINOR first, then Position
             composition = st.session_state.auction.get_team_composition(
