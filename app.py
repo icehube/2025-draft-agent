@@ -613,8 +613,6 @@ def auto_recalculate():
                     st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
             except:
                 pass  # Silent fail for optimization
-        # Trigger rerun to refresh interface
-        st.rerun()
 
 
 def bot_team_interface():
@@ -832,23 +830,6 @@ def team_preview_interface():
             """,
                         unsafe_allow_html=True)
 
-            # Budget Summary at top right
-            team_budgets = st.session_state.auction.get_team_budgets()
-            team_budget = team_budgets.get(selected_team, {})
-
-            col1, col2 = st.columns([2, 1])
-
-            with col1:
-                # Display used budget
-                if team_budget:
-                    used_budget = team_budget['total_spent']
-                    st.metric("Used Budget", f"${used_budget:.1f}")
-
-            with col2:
-                if team_budget:
-                    st.metric("Remaining Budget",
-                              f"${team_budget.get('remaining', 0):.1f}")
-
             # Single editable table with position and group styling
             edit_columns = [
                 'PLAYER', 'POS', 'PTS', 'STATUS', 'GROUP', 'SALARY'
@@ -897,8 +878,7 @@ def team_preview_interface():
                 },
                 use_container_width=True,
                 key=f"team_editor_{selected_team}",
-                hide_index=True,
-                on_change=lambda: auto_recalculate()
+                hide_index=True
             )
 
             # Check for changes and apply them
@@ -913,6 +893,23 @@ def team_preview_interface():
                             
                         if abs(row['SALARY'] - new_salary) > 0.01:
                             st.session_state.auction.update_player_salary(original_idx, new_salary)
+
+            # Budget Summary - calculated after potential changes
+            team_budgets = st.session_state.auction.get_team_budgets()
+            team_budget = team_budgets.get(selected_team, {})
+
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                # Display used budget
+                if team_budget:
+                    used_budget = team_budget['total_spent']
+                    st.metric("Used Budget", f"${used_budget:.1f}")
+
+            with col2:
+                if team_budget:
+                    st.metric("Remaining Budget",
+                              f"${team_budget.get('remaining', 0):.1f}")
 
             # Team composition and budget summary - sorted by START/MINOR first, then Position
             composition = st.session_state.auction.get_team_composition(
