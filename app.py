@@ -300,23 +300,21 @@ def display_team_budgets():
         })
 
     budget_df = pd.DataFrame(budget_data)
-    
+
     # Make the table editable for Penalty column
-    edited_df = st.data_editor(
-        budget_df, 
-        use_container_width=True,
-        column_config={
-            "Penalty": st.column_config.NumberColumn(
-                "✏️ Penalty",
-                help="Edit team penalty values",
-                min_value=0.0,
-                max_value=10.0,
-                step=0.1,
-                format="%.1f"
-            )
-        }
-    )
-    
+    edited_df = st.data_editor(budget_df,
+                               use_container_width=True,
+                               column_config={
+                                   "Penalty":
+                                   st.column_config.NumberColumn(
+                                       "✏️ Penalty",
+                                       help="Edit team penalty values",
+                                       min_value=0.0,
+                                       max_value=10.0,
+                                       step=0.1,
+                                       format="%.1f")
+                               })
+
     # Handle penalty changes
     if not edited_df.equals(budget_df):
         # Update penalties in the auction system
@@ -326,32 +324,35 @@ def display_team_budgets():
 
     # Pool summary table (F, D, G Drafted and Available)
     st.subheader("Player Pool Summary")
-    
+
     # Calculate drafted and available counts
     total_players = len(st.session_state.auction.players_df)
-    drafted_players = len(st.session_state.auction.players_df[
-        ~st.session_state.auction.players_df['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])
-    ])
+    drafted_players = len(
+        st.session_state.auction.
+        players_df[~st.session_state.auction.players_df['FCHL TEAM'].
+                   isin(['UFA', 'RFA', 'ENT'])])
     available_players = total_players - drafted_players
-    
+
     # Position breakdowns
     all_players = st.session_state.auction.players_df
-    drafted = all_players[~all_players['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])]
-    available = all_players[all_players['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT'])]
-    
+    drafted = all_players[~all_players['FCHL TEAM'].isin(['UFA', 'RFA', 'ENT']
+                                                         )]
+    available = all_players[all_players['FCHL TEAM'].isin(
+        ['UFA', 'RFA', 'ENT'])]
+
     pool_data = []
     for pos in ['F', 'D', 'G']:
         drafted_count = len(drafted[drafted['POS'] == pos])
         available_count = len(available[available['POS'] == pos])
         total_count = drafted_count + available_count
-        
+
         pool_data.append({
             'Position': pos,
             'Drafted': drafted_count,
             'Available': available_count,
             'Total': total_count
         })
-    
+
     # Add totals row
     pool_data.append({
         'Position': 'Total',
@@ -359,7 +360,7 @@ def display_team_budgets():
         'Available': available_players,
         'Total': total_players
     })
-    
+
     pool_df = pd.DataFrame(pool_data)
     st.dataframe(pool_df, use_container_width=True)
 
@@ -610,7 +611,8 @@ def auto_recalculate():
                 st.session_state.auction.build_model()
                 solution = st.session_state.auction.solve_model()
                 if solution:
-                    st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
+                    st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team(
+                    )
             except:
                 pass  # Silent fail for optimization
 
@@ -852,13 +854,15 @@ def team_preview_interface():
                 'PLAYER', 'POS', 'NHL TEAM', 'PTS', 'STATUS', 'GROUP', 'SALARY'
             ]
             styled_display = sorted_roster[edit_columns].copy()
-            
+
             # Format Position column with styling
-            styled_display['POS'] = styled_display['POS'].apply(format_position_badge)
-            
-            # Format Group column with styling  
-            styled_display['GROUP'] = styled_display['GROUP'].apply(format_group_badge)
-            
+            styled_display['POS'] = styled_display['POS'].apply(
+                format_position_badge)
+
+            # Format Group column with styling
+            styled_display['GROUP'] = styled_display['GROUP'].apply(
+                format_group_badge)
+
             # Create base64 encoded logos for NHL teams - insert after NHL TEAM column
             def get_logo_data_url(team_code):
                 if pd.notna(team_code):
@@ -869,9 +873,10 @@ def team_preview_interface():
                             encoded = base64.b64encode(f.read()).decode()
                             return f"data:image/png;base64,{encoded}"
                 return None
-            
-            styled_display.insert(3, 'Logo', styled_display['NHL TEAM'].apply(get_logo_data_url))
-            
+
+            styled_display.insert(
+                3, 'Logo', styled_display['NHL TEAM'].apply(get_logo_data_url))
+
             # Rename columns for display (8 columns total)
             styled_display.columns = [
                 'Player', 'Pos', 'NHL Team', 'Logo', 'Points', '✏️ Status', 'Group', '✏️ Salary'
@@ -879,65 +884,73 @@ def team_preview_interface():
 
             # Single editable data editor with styled columns
             st.markdown("**Team Roster (Edit Status & Salary):**")
-            
+
             # Keep original position and group values for comparison
             original_pos = sorted_roster['POS'].tolist()
             original_group = sorted_roster['GROUP'].tolist()
-            
+
             edited_df = st.data_editor(
                 styled_display,
                 column_config={
-                    "✏️ Status": st.column_config.SelectboxColumn(
+                    "✏️ Status":
+                    st.column_config.SelectboxColumn(
                         "✏️ Status",
-                        options=["START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"],
+                        options=[
+                            "START", "MINOR", "AUCTION", "UFA", "RFA", "ENT"
+                        ],
                         required=True,
-                        help="Editable: Change player status"
-                    ),
-                    "✏️ Salary": st.column_config.NumberColumn(
+                        help="Editable: Change player status"),
+                    "✏️ Salary":
+                    st.column_config.NumberColumn(
                         "✏️ Salary",
                         min_value=0.0,
                         max_value=20.0,
                         step=0.1,
                         format="$%.1f",
-                        help="Editable: Adjust salary if needed"
-                    ),
-                    "Player": st.column_config.TextColumn("Player", disabled=True),
-                    "Pos": st.column_config.Column("Pos", disabled=True),
-                    "NHL Team": st.column_config.TextColumn("NHL Team", disabled=True),
-                    "Logo": st.column_config.ImageColumn(
-                        "Logo",
-                        help="NHL Team Logo",
-                        width="small"
-                    ),
-                    "Points": st.column_config.NumberColumn("Points", disabled=True),
-                    "Group": st.column_config.Column("Group", disabled=True)
+                        help="Editable: Adjust salary if needed"),
+                    "Player":
+                    st.column_config.TextColumn("Player", disabled=True),
+                    "Pos":
+                    st.column_config.Column("Pos", disabled=True),
+                    "Team":
+                    st.column_config.ImageColumn("Logo",
+                                                 help="NHL Team Logo",
+                                                 width="small"),
+                    "Points":
+                    st.column_config.NumberColumn("Points", disabled=True),
+                    "Group":
+                    st.column_config.Column("Group", disabled=True)
                 },
                 use_container_width=True,
                 key=f"team_editor_{selected_team}",
-                height=25*(len(styled_display)+1),
-                hide_index=True
-            )
+                height=25 * (len(styled_display) + 1),
+                hide_index=True)
 
             # Save Changes Button
-            col_save, col_space = st.columns([1,2])
+            col_save, col_space = st.columns([1, 2])
             with col_save:
-                if st.button("💾 Save Changes & Recalculate", key=f"save_changes_{selected_team}", type="primary"):
+                if st.button("💾 Save Changes & Recalculate",
+                             key=f"save_changes_{selected_team}",
+                             type="primary"):
                     changes_made = False
                     # Check for changes and apply them
                     if edited_df is not None and len(edited_df) > 0:
-                        for idx, (original_idx, row) in enumerate(sorted_roster.iterrows()):
+                        for idx, (original_idx,
+                                  row) in enumerate(sorted_roster.iterrows()):
                             if idx < len(edited_df):
                                 new_status = edited_df.iloc[idx]['✏️ Status']
                                 new_salary = edited_df.iloc[idx]['✏️ Salary']
 
                                 if row['STATUS'] != new_status:
-                                    st.session_state.auction.update_player_status(original_idx, new_status)
+                                    st.session_state.auction.update_player_status(
+                                        original_idx, new_status)
                                     changes_made = True
-                                    
+
                                 if abs(row['SALARY'] - new_salary) > 0.01:
-                                    st.session_state.auction.update_player_salary(original_idx, new_salary)
+                                    st.session_state.auction.update_player_salary(
+                                        original_idx, new_salary)
                                     changes_made = True
-                    
+
                     if changes_made:
                         # Trigger complete recalculation including optimization
                         auto_recalculate()
@@ -945,8 +958,6 @@ def team_preview_interface():
                         st.rerun()
                     else:
                         st.info("No changes detected")
-
-    
 
             # Team composition and budget summary - sorted by START/MINOR first, then Position
             composition = st.session_state.auction.get_team_composition(
@@ -979,7 +990,6 @@ def team_preview_interface():
             st.dataframe(composition_df,
                          hide_index=True,
                          use_container_width=True)
-
 
             # Remove Player section moved to bottom
             st.markdown("---")
@@ -1021,30 +1031,28 @@ def optimization_interface():
 
 def main():
     # Set page configuration with hidden sidebar
-    st.set_page_config(
-        page_title="2025 BOT Draft Agent",
-        page_icon="🏒",
-        layout="wide",
-        initial_sidebar_state="collapsed"
-    )
-    
+    st.set_page_config(page_title="2025 BOT Draft Agent",
+                       page_icon="🏒",
+                       layout="wide",
+                       initial_sidebar_state="collapsed")
+
     # Load custom CSS styling
     load_custom_css()
 
     # Auto-load the saved CSV file
     csv_file_path = "players-24.csv"
-    
+
     try:
         # Load CSV data automatically
         if st.session_state.players_df is None:
             df = pd.read_csv(csv_file_path)
-            
+
             # Data validation and processing
             df['SALARY'] = df['SALARY'].fillna(0).astype(float)
             df['BID'] = df['BID'].fillna(0).astype(float)
             df['PTS'] = df['PTS'].fillna(0).astype(float)
             df['AGE'] = df['AGE'].fillna(0).astype(int)
-            
+
             # Initialize session state
             st.session_state.players_df = df
             st.session_state.baseline_df = df.copy()
@@ -1059,16 +1067,19 @@ def main():
                     st.session_state.auction.build_model()
                     solution = st.session_state.auction.solve_model()
                     if solution:
-                        st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team()
+                        st.session_state.optimal_team = st.session_state.auction.get_bot_optimal_team(
+                        )
                 except:
                     pass  # Silent fail for initial optimization
                 st.success("Player data loaded and optimized!")
             else:
                 st.error("Error processing player data")
-                
+
     except FileNotFoundError:
         st.error("players-24.csv file not found in the project directory")
-        st.info("Please ensure the players-24.csv file is present in the main project folder")
+        st.info(
+            "Please ensure the players-24.csv file is present in the main project folder"
+        )
     except Exception as e:
         st.error(f"Error loading player data: {e}")
 
@@ -1102,10 +1113,7 @@ def main():
 
     # Main tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Summary", 
-        "🤖 BOT Team", 
-        "👥 Team Preview", 
-        "📋 Remaining Players",
+        "📊 Summary", "🤖 BOT Team", "👥 Team Preview", "📋 Remaining Players",
         "💾 Database"
     ])
 
