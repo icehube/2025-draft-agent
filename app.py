@@ -881,20 +881,36 @@ def team_preview_interface():
                 hide_index=True
             )
 
-            # Check for changes and apply them
-            if edited_df is not None and len(edited_df) > 0:
-                for idx, (original_idx, row) in enumerate(sorted_roster.iterrows()):
-                    if idx < len(edited_df):
-                        new_status = edited_df.iloc[idx]['✏️ Status']
-                        new_salary = edited_df.iloc[idx]['✏️ Salary']
+            # Save Changes Button
+            st.markdown("---")
+            col_save, col_space = st.columns([1, 3])
+            with col_save:
+                if st.button("💾 Save Changes & Recalculate", key=f"save_changes_{selected_team}", type="primary"):
+                    changes_made = False
+                    # Check for changes and apply them
+                    if edited_df is not None and len(edited_df) > 0:
+                        for idx, (original_idx, row) in enumerate(sorted_roster.iterrows()):
+                            if idx < len(edited_df):
+                                new_status = edited_df.iloc[idx]['✏️ Status']
+                                new_salary = edited_df.iloc[idx]['✏️ Salary']
 
-                        if row['STATUS'] != new_status:
-                            st.session_state.auction.update_player_status(original_idx, new_status)
-                            
-                        if abs(row['SALARY'] - new_salary) > 0.01:
-                            st.session_state.auction.update_player_salary(original_idx, new_salary)
+                                if row['STATUS'] != new_status:
+                                    st.session_state.auction.update_player_status(original_idx, new_status)
+                                    changes_made = True
+                                    
+                                if abs(row['SALARY'] - new_salary) > 0.01:
+                                    st.session_state.auction.update_player_salary(original_idx, new_salary)
+                                    changes_made = True
+                    
+                    if changes_made:
+                        # Trigger complete recalculation including optimization
+                        auto_recalculate()
+                        st.success("Changes saved and model recalculated!")
+                        st.rerun()
+                    else:
+                        st.info("No changes detected")
 
-            # Budget Summary - calculated after potential changes
+            # Budget Summary - always show current state
             team_budgets = st.session_state.auction.get_team_budgets()
             team_budget = team_budgets.get(selected_team, {})
 
