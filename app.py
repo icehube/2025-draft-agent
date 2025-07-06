@@ -859,10 +859,10 @@ def team_preview_interface():
             # Format Group column with styling  
             styled_display['GROUP'] = styled_display['GROUP'].apply(format_group_badge)
             
-            # Create logo paths for NHL teams
-            styled_display['NHL TEAM LOGO'] = styled_display['NHL TEAM'].apply(lambda x: get_nhl_logo_path(x) if pd.notna(x) else None)
+            # Create logo paths for NHL teams - insert after NHL TEAM column
+            styled_display.insert(3, 'Logo', styled_display['NHL TEAM'].apply(lambda x: get_nhl_logo_path(x) if pd.notna(x) else None))
             
-            # Rename columns for display
+            # Rename columns for display (8 columns total)
             styled_display.columns = [
                 'Player', 'Pos', 'NHL Team', 'Logo', 'Points', '✏️ Status', 'Group', '✏️ Salary'
             ]
