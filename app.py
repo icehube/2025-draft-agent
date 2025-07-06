@@ -874,12 +874,12 @@ def team_preview_interface():
                             return f"data:image/png;base64,{encoded}"
                 return None
 
-            styled_display.insert(
-                3, 'Logo', styled_display['NHL TEAM'].apply(get_logo_data_url))
+            # Replace NHL TEAM column with Logo column
+            styled_display['NHL TEAM'] = styled_display['NHL TEAM'].apply(get_logo_data_url)
 
-            # Rename columns for display (8 columns total)
+            # Rename columns for display (7 columns total)
             styled_display.columns = [
-                'Player', 'Pos', 'NHL Team', 'Logo', 'Points', '✏️ Status', 'Group', '✏️ Salary'
+                'Player', 'Pos', 'Logo', 'Points', '✏️ Status', 'Group', '✏️ Salary'
             ]
 
             # Single editable data editor with styled columns
@@ -912,7 +912,7 @@ def team_preview_interface():
                     st.column_config.TextColumn("Player", disabled=True),
                     "Pos":
                     st.column_config.Column("Pos", disabled=True),
-                    "Team":
+                    "Logo":
                     st.column_config.ImageColumn("Logo",
                                                  help="NHL Team Logo",
                                                  width="small"),
