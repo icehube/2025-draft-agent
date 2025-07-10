@@ -5,7 +5,7 @@ import json
 import base64
 import os
 from fantasy_auction import FantasyAuction, teams_data, SALARY, FORWARD, DEFENCE, GOALIE
-from database import FantasyDatabase
+
 
 # Page configuration
 st.set_page_config(page_title="Fantasy Hockey Auction Manager",
@@ -272,6 +272,23 @@ def load_csv_data(uploaded_file):
         st.error(f"Error loading CSV: {str(e)}")
         return None
 
+def format_team_name_with_symbol(team_code, team_name):
+    """Format team name with a symbol/emoji"""
+    team_symbols = {
+        'MAC': '⛹️‍♂️',  
+        'BOT': '🤖',  
+        'GVR': '💧', 
+        'VPP': '🪖',  
+        'ZSK': '🦄',  
+        'HSM': '🇮🇶',  
+        'LPT': '🍲',  
+        'SHF': '🦸🏻‍♂️', 
+        'JHN': '🍁',  
+        'SRL': '♛',  
+        'LGN': '🧙🏻‍♂️',  
+    }
+    symbol = team_symbols.get(team_code, '🏒')
+    return f"{symbol} {team_name}"
 
 def display_team_budgets():
     """Display team budget summary"""
@@ -281,47 +298,64 @@ def display_team_budgets():
     team_budgets = st.session_state.auction.get_team_budgets()
 
     st.subheader("Team Budget Summary")
-    st.subheader("v1.0")
 
-    # Create budget summary table (removed Total Auction, Status, Auction columns)
+    # Create budget summary table with numeric values for better formatting
     budget_data = []
     for team_code, budget in team_budgets.items():
+        # Format team name with symbol
+        team_name_with_symbol = format_team_name_with_symbol(team_code, budget['name'])
+        
         budget_data.append({
-            'Team': budget['name'],
-            'Code': team_code,
+            'Team': team_name_with_symbol,
             'F': budget['f_count'],
             'D': budget['d_count'],
             'G': budget['g_count'],
-            'Committed': f"${budget['committed_salary']:.1f}",
-            'Penalty': budget['penalty'],  # Make this editable
-            'Total Spent': f"${budget['total_spent']:.1f}",
-            'Remaining': f"${budget['remaining']:.1f}"
+            'Committed': budget['committed_salary'],
+            'Penalty': budget['penalty'],
+            'Total Spent': budget['total_spent'],
+            'Remaining': budget['remaining']
         })
 
     budget_df = pd.DataFrame(budget_data)
     
-    # Make the table editable for Penalty column
-    edited_df = st.data_editor(
-        budget_df, 
-        use_container_width=True,
-        column_config={
-            "Penalty": st.column_config.NumberColumn(
-                "✏️ Penalty",
-                help="Edit team penalty values",
-                min_value=0.0,
-                max_value=10.0,
-                step=0.1,
-                format="%.1f"
-            )
-        }
-    )
+    # Style the budget dataframe with conditional formatting
+    def style_budget_table(df):
+        styled_df = df.style
+        
+        # Format currency columns
+        styled_df = styled_df.format({
+            'Committed': '${:.1f}',
+            'Penalty': '${:.1f}',
+            'Total Spent': '${:.1f}',
+            'Remaining': '${:.1f}'
+        })
+        
+        # Apply conditional formatting for position counts
+        def highlight_position_counts(row):
+            styles = [''] * len(row)
+            
+            # Highlight F column if >= 12 (red background)
+            if row['F'] >= 12:
+                styles[df.columns.get_loc('F')] = 'background-color: rgba(255, 0, 0, 0.2); color: #cc0000; font-weight: bold;'
+            
+            # Highlight D column if >= 8 (red background)
+            if row['D'] >= 8:
+                styles[df.columns.get_loc('D')] = 'background-color: rgba(255, 0, 0, 0.2); color: #cc0000; font-weight: bold;'
+            
+            # Highlight G column if >= 3 (red background)
+            if row['G'] >= 3:
+                styles[df.columns.get_loc('G')] = 'background-color: rgba(255, 0, 0, 0.2); color: #cc0000; font-weight: bold;'
+            
+            return styles
+        
+        styled_df = styled_df.apply(highlight_position_counts, axis=1)
+        return styled_df
     
-    # Handle penalty changes
-    if not edited_df.equals(budget_df):
-        # Update penalties in the auction system
-        with st.sidebar:
-            st.info("Penalty values updated!")
-        # You could add logic here to update the actual penalty values in the system
+    # Apply styling and display
+    styled_budget_df = style_budget_table(budget_df)
+    # Calculate height: ~35px per row + header
+    calculated_height = min(35 * len(budget_df) + 50, 500)  # Cap at 500px max
+    st.dataframe(styled_budget_df, use_container_width=True, hide_index=True, height=calculated_height)
 
     # Pool summary table (F, D, G Drafted and Available)
     st.subheader("Player Pool Summary")
@@ -360,7 +394,18 @@ def display_team_budgets():
     })
     
     pool_df = pd.DataFrame(pool_data)
-    st.dataframe(pool_df, use_container_width=True)
+    
+    # Style the dataframe to highlight the Total row
+    def highlight_total_row(df):
+        # Create a styled dataframe
+        styled_df = df.style
+        # Apply styling to the Total row (last row) - works in both light and dark modes
+        styled_df = styled_df.apply(lambda x: ['background-color: rgba(0,0,0,0.1); font-weight: bold; border-top: 2px solid rgba(0,0,0,0.2);' if i == len(df)-1 else '' for i in range(len(df))], axis=0)
+        return styled_df
+    
+    # Apply styling and display
+    styled_pool_df = highlight_total_row(pool_df)
+    st.dataframe(styled_pool_df, use_container_width=True, hide_index=True)
 
     # League financial summary (removed Total Auction)
     total_committed = sum(b['committed_salary'] for b in team_budgets.values())
@@ -493,110 +538,6 @@ def remaining_players_interface():
 
     else:
         st.info("No players currently available for auction")
-
-
-def database_interface():
-    """Database management interface"""
-    st.subheader("🗃️ Database Management")
-
-    try:
-        if 'db' not in st.session_state:
-            st.session_state.db = FantasyDatabase()
-            st.session_state.db.init_database()
-
-        db = st.session_state.db
-
-        # Database status
-        st.success("✅ Database connected and initialized")
-
-        # Session management
-        st.markdown("**Auction Sessions:**")
-        col1, col2 = st.columns(2)
-
-        with col1:
-            # Create new session
-            new_session_name = st.text_input("New Session Name",
-                                             placeholder="Enter session name")
-            if st.button("🆕 Create Session") and new_session_name:
-                session_id = db.create_auction_session(new_session_name)
-                st.success(
-                    f"Created session: {new_session_name} (ID: {session_id})")
-                st.rerun()
-
-        with col2:
-            # Active session info
-            active_session = db.get_active_session()
-            if active_session:
-                st.info(
-                    f"**Active Session:** {active_session['name']} (ID: {active_session['id']})"
-                )
-            else:
-                st.warning("No active session")
-
-        # Save current data to database
-        if st.session_state.auction is not None and st.session_state.players_df is not None:
-            st.markdown("**Data Operations:**")
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                if st.button("💾 Save to Database"):
-                    if active_session:
-                        db.save_players_data(st.session_state.players_df,
-                                             active_session['id'])
-                        # Also save team budgets
-                        team_budgets = st.session_state.auction.get_team_budgets(
-                        )
-                        db.update_team_budgets(active_session['id'],
-                                               team_budgets)
-                        st.success("Data saved to database!")
-                    else:
-                        st.error("No active session. Create a session first.")
-
-            with col2:
-                if st.button("📥 Load from Database") and active_session:
-                    loaded_df = db.load_players_data(active_session['id'])
-                    if not loaded_df.empty:
-                        st.session_state.players_df = loaded_df
-                        st.session_state.auction = FantasyAuction(df=loaded_df)
-                        st.session_state.auction.process_data()
-                        st.success("Data loaded from database!")
-                        st.rerun()
-                    else:
-                        st.warning(
-                            "No data found in database for this session")
-
-            with col3:
-                if st.button("📊 Auto-save"):
-                    st.session_state.auto_save = not st.session_state.get(
-                        'auto_save', False)
-                    status = "enabled" if st.session_state.auto_save else "disabled"
-                    st.info(f"Auto-save {status}")
-
-        # Display session list
-        st.markdown("**All Sessions:**")
-        sessions_df = db.get_session_list()
-        if not sessions_df.empty:
-            st.dataframe(sessions_df, use_container_width=True)
-
-        # Auction history
-        if active_session:
-            st.markdown("**Auction History:**")
-            history_df = db.get_auction_history(active_session['id'])
-            if not history_df.empty:
-                st.dataframe(history_df[[
-                    'timestamp', 'player_name', 'from_team', 'to_team',
-                    'auction_price', 'action_type'
-                ]],
-                             use_container_width=True)
-            else:
-                st.info("No auction history for this session")
-
-    except Exception as e:
-        st.error(f"Database error: {str(e)}")
-        st.info(
-            "Make sure the database is properly configured with environment variables."
-        )
-
 
 def auto_recalculate():
     """Auto-recalculate when data changes"""
@@ -1070,12 +1011,11 @@ def main():
         return
 
     # Main tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Summary", 
         "🤖 BOT Team", 
         "👥 Team Preview", 
-        "📋 Remaining Players",
-        "💾 Database"
+        "📋 Remaining Players"
     ])
 
     with tab1:
@@ -1089,9 +1029,6 @@ def main():
 
     with tab4:
         remaining_players_interface()
-
-    with tab5:
-        database_interface()
 
 
 if __name__ == "__main__":
