@@ -261,14 +261,12 @@ def load_csv_data(uploaded_file):
             st.error(f"Missing required columns: {missing_columns}")
             return None
 
-        # Convert data types
-        df['AGE'] = pd.to_numeric(df['AGE'],
-                                  errors='coerce').fillna(0).astype(int)
-        df['PTS'] = pd.to_numeric(df['PTS'],
-                                  errors='coerce').fillna(0).astype(int)
-        df['SALARY'] = pd.to_numeric(df['SALARY'], errors='coerce').fillna(0.0)
-        df['BID'] = pd.to_numeric(df['BID'], errors='coerce').fillna(0.0)
-
+        # Convert data types - handle NaN values
+        df['AGE'] = df['AGE'].astype(str).replace('nan', '0').astype(int)
+        df['PTS'] = df['PTS'].astype(str).replace('nan', '0').astype(int)
+        df['SALARY'] = df['SALARY'].astype(str).replace('nan', '0.0').astype(float)
+        df['BID'] = df['BID'].astype(str).replace('nan', '0.0').astype(float)
+        
         return df
     except Exception as e:
         st.error(f"Error loading CSV: {str(e)}")
@@ -283,6 +281,7 @@ def display_team_budgets():
     team_budgets = st.session_state.auction.get_team_budgets()
 
     st.subheader("Team Budget Summary")
+    st.subheader("v1.0")
 
     # Create budget summary table (removed Total Auction, Status, Auction columns)
     budget_data = []
@@ -1010,10 +1009,10 @@ def main():
             df = pd.read_csv(csv_file_path)
             
             # Data validation and processing
-            df['SALARY'] = df['SALARY'].fillna(0).astype(float)
-            df['BID'] = df['BID'].fillna(0).astype(float)
-            df['PTS'] = df['PTS'].fillna(0).astype(float)
-            df['AGE'] = df['AGE'].fillna(0).astype(int)
+            df['SALARY'] = df['SALARY'].astype(str).replace('nan', '0.0').astype(float)
+            df['BID'] = df['BID'].astype(str).replace('nan', '0.0').astype(float)
+            df['PTS'] = df['PTS'].astype(str).replace('nan', '0.0').astype(float)
+            df['AGE'] = df['AGE'].astype(str).replace('nan', '0').astype(int)
             
             # Initialize session state
             st.session_state.players_df = df
