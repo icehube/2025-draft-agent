@@ -1,0 +1,24 @@
+name: fantasy-hockey-auction
+services:
+- name: web
+  source_dir: /
+  github:
+    repo: your-username/your-repo-name
+    branch: main
+  run_command: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+  environment_slug: python
+  instance_count: 1
+  instance_size_slug: basic-s
+  envs:
+  - key: PORT
+    value: "8080"
+  - key: STREAMLIT_SERVER_HEADLESS
+    value: "true"
+  - key: STREAMLIT_SERVER_ENABLE_CORS
+    value: "false"
+  - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+    value: "false"
+  - key: SCIPOPTDIR
+    value: "/usr/local"
+  - key: LD_LIBRARY_PATH
+    value: "/usr/local/lib"
